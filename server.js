@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,21 +9,18 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Add some branding headers
 app.use((req, res, next) => {
     res.setHeader('X-Powered-By', 'I\'m Running Live');
     next();
 });
 
-// Root endpoint
+// Root endpoint - Serve homepage
 app.get('/', (req, res) => {
-    res.json({
-        app: "I'm Running Live",
-        version: "1.0.0",
-        description: "Real-time marathon tracking platform",
-        website: "https://imrunning.live",
-        status: "🏃‍♂️ Running Live!"
-    });
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Test endpoint
@@ -30,7 +28,8 @@ app.get('/api/test', (req, res) => {
     res.json({
         message: 'I\'m Running Live API is active! 🏃‍♂️',
         timestamp: new Date().toISOString(),
-        platform: 'imrunning.live'
+        platform: 'imrunning.live',
+        version: '1.0.0'
     });
 });
 
@@ -40,7 +39,8 @@ app.get('/api/health', (req, res) => {
         status: 'OK',
         uptime: process.uptime(),
         service: 'I\'m Running Live API',
-        version: '1.0.0'
+        version: '1.0.0',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -134,12 +134,38 @@ app.get('/api/runner/:runnerId/activity/:activityId/messages', (req, res) => {
     res.json(mockMessages);
 });
 
+// Serve individual runner tracking pages
+app.get('/runner/:runnerId/:activityId', (req, res) => {
+    // This will serve your runner tracking page (the one we created earlier)
+    // For now, redirect to a simple message
+    res.send(`
+    <h1>🏃‍♂️ Live Tracking</h1>
+    <p>Tracking page for runner: ${req.params.runnerId}</p>
+    <p>Activity: ${req.params.activityId}</p>
+    <p><a href="/">← Back to I'm Running Live</a></p>
+  `);
+});
+
+// 404 handler for unknown routes
+app.get('*', (req, res) => {
+    res.status(404).json({
+        error: 'Page not found',
+        message: 'The requested page does not exist',
+        platform: 'imrunning.live',
+        availableEndpoints: [
+            'GET /',
+            'GET /api/test',
+            'GET /api/health',
+            'GET /runner/:id/:activity'
+        ]
+    });
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`🏃‍♂️ I'm Running Live API is running on port ${PORT}`);
     console.log(`🌐 Platform: imrunning.live`);
-    console.log(`📍 Test endpoint: http://localhost:${PORT}/api/test`);
-    console.log(`💻 Admin panel: http://localhost:${PORT}/`);
+    console.log(`📍 Homepage: http://localhost:${PORT}/`);
+    console.log(`🔧 API Test: http://localhost:${PORT}/api/test`);
+    console.log(`💚 Health Check: http://localhost:${PORT}/api/health`);
 });
-
-
