@@ -146,6 +146,25 @@ app.get('/runner/:runnerId/:activityId', (req, res) => {
   `);
 });
 
+
+// Serve live map for specific runner/activity
+app.get('/:userId/:activityId', (req, res) => {
+    const { userId, activityId } = req.params;
+
+    // Validate IDs (should be 20 characters, alphanumeric)
+    const idPattern = /^[a-zA-Z0-9]{20}$/;
+
+    if (!idPattern.test(userId) || !idPattern.test(activityId)) {
+        console.log(`Invalid ID format - User: ${userId}, Activity: ${activityId}`);
+        return res.redirect('/');
+    }
+
+    console.log(`📍 Live map requested for User: ${userId}, Activity: ${activityId}`);
+
+    // Serve the live map page
+    res.sendFile(path.join(__dirname, 'public', 'livemap.html'));
+});
+
 // 404 handler for unknown routes
 app.get('*', (req, res) => {
     res.status(404).json({
