@@ -19,22 +19,14 @@ class LiveTracker {
         this.isOnline = false;
         this.updateTimer = null;
         this.messageTimer = null;
+        this.socket = null;
         this.stats = {
             distance: 0,
-            pace: '--:--',
+            pace: '0:00',
             heartRate: 0,
-            currentTime: '--:--:--',
+            currentTime: '00:00:00',
             remaining: 42.2
         };
-
-        // Milestones for marathon
-        this.milestones = [
-            { distance: 5, name: '5K', element: 'milestone-5', timeElement: 'time-5' },
-            { distance: 10, name: '10K', element: 'milestone-10', timeElement: 'time-10' },
-            { distance: 21.1, name: 'Half', element: 'milestone-21', timeElement: 'time-21' },
-            { distance: 30, name: '30K', element: 'milestone-30', timeElement: 'time-30' },
-            { distance: 42.2, name: 'Finish', element: 'milestone-42', timeElement: 'time-42' }
-        ];
 
         this.init();
     }
@@ -48,18 +40,28 @@ class LiveTracker {
             return;
         }
 
-        // Show loading screen briefly
-        await this.showLoadingScreen();
+        try {
+            // Show loading screen briefly
+            await this.showLoadingScreen();
 
-        // Initialize components
-        this.initializeMap();
-        this.bindEvents();
-        this.startDataFetching();
+            // Initialize components
+            this.initializeMap();
+            this.initializeSocketIO();
+            this.bindEvents();
 
-        // Hide loading screen
-        this.hideLoadingScreen();
+            // Load initial data
+            await this.loadInitialData();
 
-        console.log('✅ Live tracker initialized successfully');
+            // Hide loading screen
+            this.hideLoadingScreen();
+
+            console.log('✅ Live tracker initialized successfully');
+        } catch (error) {
+            console.error('❌ Error during initialization:', error);
+            // Force hide loading screen even if there's an error
+            this.hideLoadingScreen();
+            this.showError('Failed to load tracking data. Please refresh the page.');
+        }
     }
 
     validateIds() {
@@ -74,6 +76,11 @@ class LiveTracker {
 
     async showLoadingScreen() {
         const progress = document.querySelector('.loading-progress');
+        if (!progress) {
+            console.warn('Loading progress element not found');
+            return;
+        }
+
         let width = 0;
 
         const interval = setInterval(() => {
@@ -86,22 +93,45 @@ class LiveTracker {
             }
         }, 100);
 
-        // Wait minimum 2 seconds for loading experience
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Wait minimum 1 second for loading experience
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     hideLoadingScreen() {
         const loadingScreen = document.getElementById('loadingScreen');
-        loadingScreen.classList.add('hidden');
+        if (loadingScreen) {
+            loadingScreen.classList.add('hidden');
 
-        setTimeout(() => {
-            loadingScreen.style.display = 'none';
-        }, 500);
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 500);
+        } else {
+            console.warn('Loading screen element not found');
+        }
+    }
+
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-align: center; z-index: 10000; max-width: 400px;
+        `;
+        errorDiv.innerHTML = `
+            <h2>⚠️ Error</h2>
+            <p>${message}</p>
+            <button onclick="window.location.reload()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 15px;">
+                Reload Page
+            </button>
+        `;
+        document.body.appendChild(errorDiv);
     }
 
     initializeMap() {
         // Initialize map centered on Berlin (will update with actual location)
-        this.map = L.map('map').setView([52.5163, 13.3777], 13);
+        this.map = L.map('map', {
+            zoomControl: false // Remove default zoom controls since we have custom ones
+        }).setView([52.5163, 13.3777], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
@@ -120,110 +150,221 @@ class LiveTracker {
             icon: runnerIcon
         }).addTo(this.map);
 
-        this.runnerMarker.bindPopup('<b>Runner Location</b><br>Connecting...').openPopup();
+        this.runnerMarker.bindPopup('<b>Runner\'s Location</b><br>Loading position...').openPopup();
 
         console.log('🗺️ Map initialized');
     }
 
-    bindEvents() {
-        // Message form
-        const messageForm = document.getElementById('messageForm');
-        messageForm.addEventListener('submit', (e) => this.handleMessageSubmit(e));
+    initializeSocketIO() {
+        // Connect to Socket.IO server
+        this.socket = io();
 
-        // Character counter
-        const messageInput = document.getElementById('message');
-        const charCount = document.getElementById('charCount');
-        messageInput.addEventListener('input', () => {
-            charCount.textContent = messageInput.value.length;
+        // Join tracking room
+        this.socket.emit('join-tracking', {
+            runnerId: this.userId,
+            activityId: this.activityId
+        });
+
+        // Listen for real-time updates
+        this.socket.on('location-update', (data) => {
+            console.log('📍 Real-time location update:', data);
+            this.updateRunnerLocation(data.location.lat, data.location.lng, data.location.distance);
+            this.updateStats({
+                distance: data.location.distance,
+                remaining: Math.max(0, 42.2 - data.location.distance)
+            });
+        });
+
+        this.socket.on('new-message', (data) => {
+            console.log('💬 New message received:', data);
+            this.addNewMessage(data.message);
+        });
+
+        this.socket.on('activity-started', (data) => {
+            console.log('🏁 Activity started:', data);
+            this.raceStartTime = new Date(data.startTime);
+            this.updateConnectionStatus('online', 'Live Tracking');
+            this.isOnline = true;
+        });
+
+        console.log('🔌 Socket.IO initialized');
+    }
+
+    async loadInitialData() {
+        try {
+            // Load runner data and current stats
+            const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('📊 Initial data loaded:', data);
+
+            // Update runner title
+            const runnerTitle = document.getElementById('runnerTitle');
+            if (runnerTitle) {
+                runnerTitle.textContent = `🏃‍♂️ ${data.runner.name}'s ${data.activity.raceName}`;
+            }
+
+            // Set race start time if available
+            if (data.activity.startTime) {
+                this.raceStartTime = new Date(data.activity.startTime);
+                this.updateConnectionStatus('online', 'Live Tracking');
+                this.isOnline = true;
+            } else {
+                this.updateConnectionStatus('offline', 'Not Started');
+                this.isOnline = false;
+            }
+
+            // Update stats
+            this.updateStats(data.currentStats);
+
+            // Update runner location if available
+            if (data.lastLocation) {
+                this.updateRunnerLocation(data.lastLocation.lat, data.lastLocation.lng, data.currentStats.distance);
+            }
+
+            // Load messages
+            await this.loadMessages();
+
+            // Start race time updates if race is active
+            if (this.raceStartTime) {
+                this.startRaceTimeUpdates();
+            }
+
+        } catch (error) {
+            console.error('❌ Error loading initial data:', error);
+            throw error;
+        }
+    }
+
+    async loadMessages() {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}/messages?limit=20`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const messages = await response.json();
+            this.displayMessages(messages);
+
+        } catch (error) {
+            console.error('❌ Error loading messages:', error);
+            // Don't throw here, just show empty messages
+            this.displayMessages([]);
+        }
+    }
+
+    bindEvents() {
+        // Canned cheer buttons
+        document.querySelectorAll('.cheer-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.handleCannedCheer(e));
+        });
+
+        // Name input validation
+        const nameInput = document.getElementById('senderName');
+        nameInput.addEventListener('input', () => {
+            this.validateCheerButtons();
         });
 
         // Map controls
         document.getElementById('centerMapBtn').addEventListener('click', () => this.centerMap());
-        document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
-
-        // Share button
-        document.getElementById('shareBtn').addEventListener('click', () => this.copyShareLink());
 
         console.log('🔗 Event listeners bound');
     }
 
-    startDataFetching() {
-        // Initial fetch
-        this.fetchRunnerData();
-        this.fetchMessages();
+    handleCannedCheer(e) {
+        const senderName = document.getElementById('senderName').value.trim();
 
-        // Set up intervals
-        this.updateTimer = setInterval(() => {
-            this.fetchRunnerData();
-        }, this.UPDATE_INTERVAL);
+        if (!senderName) {
+            this.showMessageStatus('error', '⚠️ Please enter your name first!');
+            document.getElementById('senderName').focus();
+            return;
+        }
 
-        this.messageTimer = setInterval(() => {
-            this.fetchMessages();
-        }, this.MESSAGE_CHECK_INTERVAL);
+        const message = e.target.getAttribute('data-message');
 
-        // Update race time every second
-        setInterval(() => {
-            this.updateRaceTime();
-        }, 1000);
+        // Disable button temporarily
+        e.target.disabled = true;
+        const originalText = e.target.textContent;
+        e.target.textContent = 'Sending...';
 
-        console.log('⏰ Data fetching started');
+        this.sendCheerMessage(senderName, message).then(() => {
+            // Reset button
+            e.target.disabled = false;
+            e.target.textContent = originalText;
+        }).catch(() => {
+            // Reset button on error
+            e.target.disabled = false;
+            e.target.textContent = originalText;
+        });
     }
 
-    async fetchRunnerData() {
+    validateCheerButtons() {
+        const senderName = document.getElementById('senderName').value.trim();
+        const cheerButtons = document.querySelectorAll('.cheer-btn');
+
+        cheerButtons.forEach(btn => {
+            if (senderName) {
+                btn.style.opacity = '1';
+                btn.disabled = false;
+            } else {
+                btn.style.opacity = '0.5';
+                btn.disabled = true;
+            }
+        });
+    }
+
+    async sendCheerMessage(senderName, message) {
         try {
-            const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}`);
+            const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sender: senderName,
+                    message: message
+                })
+            });
 
             if (response.ok) {
-                const data = await response.json();
-                this.updateRunnerData(data);
-                this.updateConnectionStatus('online', 'Live Tracking');
-                this.isOnline = true;
+                this.showMessageStatus('success', '✅ Cheer sent! The runner will hear it soon.');
+
+                // Message will be added via Socket.IO real-time update
+                return true;
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
         } catch (error) {
-            console.error('❌ Failed to fetch runner data:', error);
-            this.updateConnectionStatus('offline', 'Connection Lost');
-            this.isOnline = false;
-        }
-
-        this.updateLastUpdateTime();
-    }
-
-    updateRunnerData(data) {
-        // Update location
-        if (data.location) {
-            this.updateRunnerLocation(data.location.lat, data.location.lng);
-        }
-
-        // Update stats
-        if (data.stats) {
-            this.updateStats(data.stats);
-        }
-
-        // Update race start time
-        if (data.raceStartTime && !this.raceStartTime) {
-            this.raceStartTime = new Date(data.raceStartTime);
-            console.log('🏁 Race start time set:', this.raceStartTime);
-        }
-
-        // Update title if provided
-        if (data.title) {
-            document.getElementById('runnerTitle').textContent = data.title;
+            console.error('❌ Failed to send message:', error);
+            this.showMessageStatus('error', '❌ Failed to send cheer. Please try again.');
+            throw error;
         }
     }
 
-    updateRunnerLocation(lat, lng) {
+    startRaceTimeUpdates() {
+        // Update race time every second
+        setInterval(() => {
+            this.updateRaceTime();
+        }, 1000);
+    }
+
+    updateRunnerLocation(lat, lng, distance) {
         const newPos = [lat, lng];
 
         // Update marker position
         this.runnerMarker.setLatLng(newPos);
 
-        // Update popup with current location name (you can enhance this with reverse geocoding)
+        // Update popup with current location
         this.runnerMarker.getPopup().setContent(`
-            <b>Current Location</b><br>
+            <b>Runner's Location</b><br>
             Lat: ${lat.toFixed(6)}<br>
             Lng: ${lng.toFixed(6)}<br>
+            Distance: ${distance.toFixed(1)} km<br>
             <small>Last updated: ${new Date().toLocaleTimeString()}</small>
         `);
 
@@ -242,15 +383,17 @@ class LiveTracker {
             }).addTo(this.map);
         }
 
-        // Update location text
-        document.getElementById('locationText').textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        // Center map on runner if it's the first location
+        if (this.routePath.length === 1) {
+            this.map.setView(newPos, 15);
+        }
 
-        console.log(`📍 Location updated: ${lat}, ${lng}`);
+        console.log(`📍 Location updated: ${lat}, ${lng}, Distance: ${distance} km`);
     }
 
     updateStats(stats) {
         // Animate stat updates
-        const statElements = ['distance', 'pace', 'heartRate'];
+        const statElements = ['distance', 'pace', 'heartRate', 'remaining'];
 
         statElements.forEach(stat => {
             const element = document.getElementById(stat);
@@ -260,13 +403,8 @@ class LiveTracker {
                 setTimeout(() => element.classList.remove('stat-updating'), 500);
 
                 // Update value
-                if (stat === 'distance') {
+                if (stat === 'distance' || stat === 'remaining') {
                     element.textContent = parseFloat(stats[stat]).toFixed(1);
-                    // Update remaining distance
-                    const remaining = Math.max(0, 42.2 - parseFloat(stats[stat]));
-                    document.getElementById('remaining').textContent = remaining.toFixed(1);
-                    // Update progress
-                    this.updateProgress(parseFloat(stats[stat]));
                 } else {
                     element.textContent = stats[stat];
                 }
@@ -275,85 +413,44 @@ class LiveTracker {
 
         // Store stats
         this.stats = { ...this.stats, ...stats };
-
-        // Update milestones
-        this.updateMilestones();
-    }
-
-    updateProgress(distance) {
-        const percentage = Math.min(100, (distance / 42.2) * 100);
-        const progressFill = document.getElementById('progressFill');
-        const progressPercent = document.getElementById('progressPercent');
-
-        progressFill.style.width = percentage + '%';
-        progressPercent.textContent = percentage.toFixed(1) + '%';
-    }
-
-    updateMilestones() {
-        const currentDistance = parseFloat(this.stats.distance) || 0;
-
-        this.milestones.forEach(milestone => {
-            const statusElement = document.getElementById(milestone.element);
-            const timeElement = document.getElementById(milestone.timeElement);
-
-            if (currentDistance >= milestone.distance) {
-                statusElement.textContent = 'Completed';
-                statusElement.className = 'milestone-status completed';
-                // You can add actual completion time here
-                timeElement.textContent = this.stats.currentTime || '--:--';
-            } else if (currentDistance >= milestone.distance - 1) {
-                statusElement.textContent = 'Approaching';
-                statusElement.className = 'milestone-status current';
-            } else {
-                statusElement.textContent = 'Upcoming';
-                statusElement.className = 'milestone-status upcoming';
-            }
-        });
     }
 
     updateRaceTime() {
         if (!this.raceStartTime) return;
 
         const elapsed = Math.floor((Date.now() - this.raceStartTime) / 1000);
-        const hours = Math.floor(elapsed / 3600);
-        const minutes = Math.floor((elapsed % 3600) / 60);
-        const seconds = elapsed % 60;
-
-        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        const timeString = this.formatTime(elapsed);
         document.getElementById('currentTime').textContent = timeString;
         this.stats.currentTime = timeString;
+    }
+
+    formatTime(totalSeconds) {
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        if (hours > 0) {
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
     }
 
     updateConnectionStatus(status, message) {
         const statusDot = document.getElementById('statusDot');
         const statusText = document.getElementById('statusText');
 
-        statusDot.className = `status-dot ${status}`;
-        statusText.textContent = message;
-    }
-
-    updateLastUpdateTime() {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString();
-        document.getElementById('lastUpdate').textContent = timeString;
-    }
-
-    async fetchMessages() {
-        try {
-            const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}/messages`);
-
-            if (response.ok) {
-                const messages = await response.json();
-                this.displayMessages(messages);
-            }
-        } catch (error) {
-            console.error('❌ Failed to fetch messages:', error);
+        if (statusDot && statusText) {
+            statusDot.className = `status-dot ${status}`;
+            statusText.textContent = message;
         }
     }
 
     displayMessages(messages) {
         const messagesList = document.getElementById('messagesList');
         const messageCount = document.getElementById('messageCount');
+
+        if (!messagesList || !messageCount) return;
 
         if (messages.length === 0) {
             messagesList.innerHTML = '<div class="loading-messages">No messages yet. Be the first to send encouragement!</div>';
@@ -368,9 +465,9 @@ class LiveTracker {
 
         messagesList.innerHTML = recentMessages.map(msg => `
             <div class="message-item">
-                <div class="message-sender">${this.escapeHtml(msg.sender || 'Anonymous')}</div>
+                <div class="message-sender">${this.escapeHtml(msg.sender.name || 'Anonymous')}</div>
                 <div class="message-text">${this.escapeHtml(msg.message)}</div>
-                <div class="message-time">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+                <div class="message-time">${new Date(msg.createdAt).toLocaleTimeString()}</div>
             </div>
         `).join('');
 
@@ -378,55 +475,37 @@ class LiveTracker {
         messagesList.scrollTop = 0;
     }
 
-    async handleMessageSubmit(e) {
-        e.preventDefault();
+    addNewMessage(message) {
+        const messagesList = document.getElementById('messagesList');
+        const messageCount = document.getElementById('messageCount');
 
-        const senderName = document.getElementById('senderName').value.trim();
-        const message = document.getElementById('message').value.trim();
-        const sendBtn = document.getElementById('sendBtn');
-        const messageStatus = document.getElementById('messageStatus');
+        if (!messagesList || !messageCount) return;
 
-        if (!senderName || !message) return;
+        // Add new message at the top
+        const newMsgHtml = `
+            <div class="message-item" style="animation: messageSlideIn 0.3s ease;">
+                <div class="message-sender">${this.escapeHtml(message.sender)}</div>
+                <div class="message-text">${this.escapeHtml(message.message)}</div>
+                <div class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</div>
+            </div>
+        `;
+        messagesList.insertAdjacentHTML('afterbegin', newMsgHtml);
 
-        // Show loading state
-        sendBtn.disabled = true;
-        sendBtn.classList.add('loading');
+        // Update message count
+        const currentCount = parseInt(messageCount.textContent.match(/\d+/)[0]) || 0;
+        messageCount.textContent = `(${currentCount + 1})`;
 
-        try {
-            const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}/messages`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    sender: senderName,
-                    message: message
-                })
-            });
-
-            if (response.ok) {
-                // Success
-                document.getElementById('messageForm').reset();
-                document.getElementById('charCount').textContent = '0';
-                this.showMessageStatus('success', '✅ Message sent! The runner will hear it soon.');
-
-                // Refresh messages
-                setTimeout(() => this.fetchMessages(), 1000);
-            } else {
-                throw new Error(`HTTP ${response.status}`);
-            }
-        } catch (error) {
-            console.error('❌ Failed to send message:', error);
-            this.showMessageStatus('error', '❌ Failed to send message. Please try again.');
+        // Remove oldest message if we have more than 10
+        const messageItems = messagesList.querySelectorAll('.message-item');
+        if (messageItems.length > 10) {
+            messageItems[messageItems.length - 1].remove();
         }
-
-        // Reset button
-        sendBtn.disabled = false;
-        sendBtn.classList.remove('loading');
     }
 
     showMessageStatus(type, message) {
         const statusElement = document.getElementById('messageStatus');
+        if (!statusElement) return;
+
         statusElement.className = `message-status ${type}`;
         statusElement.textContent = message;
         statusElement.style.display = 'block';
@@ -442,48 +521,6 @@ class LiveTracker {
         }
     }
 
-    toggleFullscreen() {
-        const mapContainer = document.querySelector('.map-container');
-
-        if (!document.fullscreenElement) {
-            mapContainer.requestFullscreen().then(() => {
-                // Resize map after fullscreen
-                setTimeout(() => this.map.invalidateSize(), 100);
-            });
-        } else {
-            document.exitFullscreen();
-        }
-    }
-
-    copyShareLink() {
-        const currentUrl = window.location.href;
-
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(currentUrl).then(() => {
-                this.showTemporaryFeedback('📋 Link copied to clipboard!');
-            });
-        } else {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = currentUrl;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            this.showTemporaryFeedback('📋 Link copied!');
-        }
-    }
-
-    showTemporaryFeedback(message) {
-        const shareBtn = document.getElementById('shareBtn');
-        const originalText = shareBtn.textContent;
-
-        shareBtn.textContent = message;
-        setTimeout(() => {
-            shareBtn.textContent = originalText;
-        }, 2000);
-    }
-
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -494,6 +531,13 @@ class LiveTracker {
         // Clean up timers and resources
         if (this.updateTimer) clearInterval(this.updateTimer);
         if (this.messageTimer) clearInterval(this.messageTimer);
+        if (this.socket) {
+            this.socket.emit('leave-tracking', {
+                runnerId: this.userId,
+                activityId: this.activityId
+            });
+            this.socket.disconnect();
+        }
 
         console.log('🧹 Live tracker destroyed');
     }
@@ -501,7 +545,42 @@ class LiveTracker {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.liveTracker = new LiveTracker();
+    console.log('🚀 DOM loaded, initializing LiveTracker...');
+
+    try {
+        window.liveTracker = new LiveTracker();
+    } catch (error) {
+        console.error('❌ Failed to initialize LiveTracker:', error);
+
+        // Fallback: hide loading screen and show error
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+        }
+
+        // Add error message to body
+        document.body.innerHTML += `
+            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                        background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                        text-align: center; z-index: 10000;">
+                <h2>⚠️ Loading Error</h2>
+                <p>Failed to load the tracking page.</p>
+                <button onclick="window.location.reload()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Reload Page
+                </button>
+            </div>
+        `;
+    }
+
+    // Failsafe timeout - force hide loading screen after 10 seconds
+    setTimeout(() => {
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen && !loadingScreen.classList.contains('hidden')) {
+            console.warn('⚠️ Forcing loading screen to hide after timeout');
+            loadingScreen.style.display = 'none';
+            document.body.classList.add('loaded');
+        }
+    }, 10000);
 });
 
 // Clean up when page unloads
@@ -520,13 +599,9 @@ window.addEventListener('error', (e) => {
 document.addEventListener('visibilitychange', () => {
     if (window.liveTracker) {
         if (document.hidden) {
-            console.log('📴 Tab hidden, pausing updates');
-            // Could pause updates here to save resources
+            console.log('📴 Tab hidden');
         } else {
-            console.log('📱 Tab visible, resuming updates');
-            // Resume updates and fetch latest data
-            window.liveTracker.fetchRunnerData();
-            window.liveTracker.fetchMessages();
+            console.log('📱 Tab visible');
         }
     }
 });

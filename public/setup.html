@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - I'm Running Live</title>
+    <meta name="description" content="Set up your marathon tracking profile for the Berlin Marathon 2025">
+    <link rel="stylesheet" href="/css/home.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏃‍♂️</text></svg>">
+    <style>
+        .setup-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .setup-form {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .form-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .success-section {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .success-section h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        .tracking-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+
+        .tracking-info h3 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .id-display {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 1.1rem;
+            word-break: break-all;
+        }
+
+        .tracking-url {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            word-break: break-all;
+        }
+
+        .tracking-url a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="hero">
+        <div class="hero-content">
+            <h1>🏃‍♂️ I'm Running Live</h1>
+            <p>Set up your Berlin Marathon 2025 tracking profile</p>
+            <a href="/" class="cta-button">← Back to Home</a>
+        </div>
+    </header>
+
+    <div class="setup-container">
+        <!-- Setup Form -->
+        <div class="setup-form" id="setupForm">
+            <h2>🚀 Create Your Tracking Profile</h2>
+            <p style="color: #666; margin-bottom: 30px;">Fill out the form below to create your unique tracking profile for the Berlin Marathon 2025.</p>
+
+            <form id="runnerForm">
+                <!-- Personal Information -->
+                <div class="form-section">
+                    <h3>👤 Personal Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" required maxlength="100" placeholder="Your full name">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" placeholder="your.email@example.com">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone Number</label>
+                            <input type="tel" id="phone" name="phone" placeholder="+49 123 456 789">
+                        </div>
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="number" id="age" name="age" min="16" max="100" placeholder="25">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="city">City</label>
+                            <input type="text" id="city" name="city" placeholder="Berlin">
+                        </div>
+                        <div class="form-group">
+                            <label for="country">Country</label>
+                            <input type="text" id="country" name="country" placeholder="Germany">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Race Information -->
+                <div class="form-section">
+                    <h3>🏁 Race Information</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="raceName">Race Name *</label>
+                            <input type="text" id="raceName" name="raceName" required value="Berlin Marathon 2025" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="raceDate">Race Date *</label>
+                            <input type="date" id="raceDate" name="raceDate" required value="2025-09-21" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="raceType">Race Type</label>
+                            <select id="raceType" name="raceType">
+                                <option value="marathon" selected>Marathon (42.2 km)</option>
+                                <option value="half-marathon">Half Marathon (21.1 km)</option>
+                                <option value="10k">10K</option>
+                                <option value="5k">5K</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="targetTime">Target Finish Time</label>
+                            <input type="text" id="targetTime" name="targetTime" placeholder="3:30:00 (HH:MM:SS)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferences -->
+                <div class="form-section">
+                    <h3>⚙️ Preferences</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="updateFrequency">Location Update Frequency</label>
+                            <select id="updateFrequency" name="updateFrequency">
+                                <option value="5">Every 5 seconds</option>
+                                <option value="10" selected>Every 10 seconds</option>
+                                <option value="15">Every 15 seconds</option>
+                                <option value="30">Every 30 seconds</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="messageCheckFrequency">Message Check Frequency</label>
+                            <select id="messageCheckFrequency" name="messageCheckFrequency">
+                                <option value="15">Every 15 seconds</option>
+                                <option value="30" selected>Every 30 seconds</option>
+                                <option value="60">Every minute</option>
+                                <option value="120">Every 2 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    🚀 Create My Tracking Profile
+                </button>
+            </form>
+
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>Creating your tracking profile...</p>
+            </div>
+
+            <!-- Error Message -->
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+
+        <!-- Success Section -->
+        <div class="success-section" id="successSection">
+            <h2>🎉 Profile Created Successfully!</h2>
+            <p>Your Berlin Marathon 2025 tracking profile has been created. Here are your unique tracking details:</p>
+
+            <div class="tracking-info">
+                <h3>🔑 Your Tracking IDs</h3>
+                <div class="id-display" id="runnerIdDisplay"></div>
+                <div class="id-display" id="activityIdDisplay"></div>
+            </div>
+
+            <div class="tracking-info">
+                <h3>🌐 Your Tracking URL</h3>
+                <div class="tracking-url" id="trackingUrl"></div>
+                <p style="margin-top: 15px; font-size: 0.9rem;">Share this URL with your friends and family so they can track your progress in real-time!</p>
+            </div>
+
+            <div class="action-buttons">
+                <a href="#" class="action-btn" id="viewMapBtn">🗺️ View Live Map</a>
+                <a href="/mobile-app.html" class="action-btn">📱 Mobile App Simulator</a>
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: rgba(255, 255, 255, 0.1); border-radius: 10px;">
+                <h4>📋 Next Steps:</h4>
+                <ul style="text-align: left; margin-top: 15px;">
+                    <li>Save your Runner ID and Activity ID somewhere safe</li>
+                    <li>Share your tracking URL with supporters</li>
+                    <li>Use the mobile app simulator to test tracking</li>
+                    <li>On race day, start your activity from the mobile app</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SetupManager {
+            constructor() {
+                this.form = document.getElementById('runnerForm');
+                this.submitBtn = document.getElementById('submitBtn');
+                this.loading = document.getElementById('loading');
+                this.errorMessage = document.getElementById('errorMessage');
+                this.setupForm = document.getElementById('setupForm');
+                this.successSection = document.getElementById('successSection');
+                
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+                
+                // Update race type to adjust distance
+                document.getElementById('raceType').addEventListener('change', (e) => {
+                    this.updateRaceInfo(e.target.value);
+                });
+            }
+
+            updateRaceInfo(raceType) {
+                const raceNameInput = document.getElementById('raceName');
+                const raceDateInput = document.getElementById('raceDate');
+                
+                switch(raceType) {
+                    case 'marathon':
+                        raceNameInput.value = 'Berlin Marathon 2025';
+                        raceDateInput.value = '2025-09-21';
+                        break;
+                    case 'half-marathon':
+                        raceNameInput.value = 'Berlin Half Marathon 2025';
+                        raceDateInput.value = '2025-09-21';
+                        break;
+                    case '10k':
+                        raceNameInput.value = 'Berlin 10K 2025';
+                        raceDateInput.value = '2025-09-21';
+                        break;
+                    case '5k':
+                        raceNameInput.value = 'Berlin 5K 2025';
+                        raceDateInput.value = '2025-09-21';
+                        break;
+                }
+            }
+
+            async handleSubmit(e) {
+                e.preventDefault();
+                
+                // Show loading state
+                this.showLoading(true);
+                this.hideError();
+
+                try {
+                    // Collect form data
+                    const formData = new FormData(this.form);
+                    const data = Object.fromEntries(formData.entries());
+
+                    // Validate required fields
+                    if (!data.name || !data.raceName || !data.raceDate) {
+                        throw new Error('Please fill in all required fields');
+                    }
+
+                    // Parse target time if provided
+                    if (data.targetTime) {
+                        const timeParts = data.targetTime.split(':');
+                        if (timeParts.length === 3) {
+                            data.targetTime = {
+                                hours: parseInt(timeParts[0]),
+                                minutes: parseInt(timeParts[1]),
+                                seconds: parseInt(timeParts[2])
+                            };
+                        }
+                    }
+
+                    // Create runner profile
+                    const response = await fetch('/api/runners', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || `HTTP ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    // Show success
+                    this.showSuccess(result);
+
+                } catch (error) {
+                    console.error('❌ Setup failed:', error);
+                    this.showError(error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            showLoading(show) {
+                this.loading.style.display = show ? 'block' : 'none';
+                this.submitBtn.disabled = show;
+            }
+
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+            }
+
+            hideError() {
+                this.errorMessage.style.display = 'none';
+            }
+
+            showSuccess(data) {
+                // Hide form
+                this.setupForm.style.display = 'none';
+                
+                // Show success section
+                this.successSection.style.display = 'block';
+                
+                // Populate tracking info
+                document.getElementById('runnerIdDisplay').textContent = `Runner ID: ${data.runnerId}`;
+                document.getElementById('activityIdDisplay').textContent = `Activity ID: ${data.activityId}`;
+                document.getElementById('trackingUrl').innerHTML = `<a href="${data.trackingUrl}" target="_blank">${data.trackingUrl}</a>`;
+                
+                // Set up view map button
+                document.getElementById('viewMapBtn').href = data.trackingUrl;
+                
+                // Scroll to success section
+                this.successSection.scrollIntoView({ behavior: 'smooth' });
+                
+                console.log('✅ Profile created successfully:', data);
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 DOM loaded, initializing Setup Manager...');
+            window.setupManager = new SetupManager();
+        });
+    </script>
+</body>
+</html>

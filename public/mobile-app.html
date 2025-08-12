@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile App Simulator - I'm Running Live</title>
+    <meta name="description" content="Simulate the iOS mobile app for marathon tracking">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏃‍♂️</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f0f0;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .setup-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .setup-section h2 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.danger {
+            background: #dc3545;
+        }
+
+        .status-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .status-section h2 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .status-dot.online {
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: #dc3545;
+        }
+
+        .status-text {
+            font-weight: 500;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .location-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .location-section h2 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .location-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .location-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .location-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .location-label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        .location-value {
+            color: #667eea;
+            font-family: monospace;
+        }
+
+        .messages-section {
+            padding: 20px;
+        }
+
+        .messages-section h2 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .message-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .message-text {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .message-time {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .no-messages {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .controls h2 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏃‍♂️ I'm Running Live</h1>
+            <p>Mobile App Simulator</p>
+        </div>
+
+        <!-- Setup Section -->
+        <div class="setup-section">
+            <h2>🔧 Setup</h2>
+            <div class="input-group">
+                <label for="runnerId">Runner ID:</label>
+                <input type="text" id="runnerId" placeholder="Enter your 20-character Runner ID" maxlength="20">
+            </div>
+            <div class="input-group">
+                <label for="activityId">Activity ID:</label>
+                <input type="text" id="activityId" placeholder="Enter your 20-character Activity ID" maxlength="20">
+            </div>
+            <button class="btn" id="connectBtn">Connect to Tracking</button>
+        </div>
+
+        <!-- Status Section -->
+        <div class="status-section">
+            <h2>📊 Status</h2>
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-text" id="statusText">Not Connected</span>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="distance">0.0</div>
+                    <div class="stat-label">Distance (km)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="pace">0:00</div>
+                    <div class="stat-label">Pace (/km)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="heartRate">0</div>
+                    <div class="stat-label">Heart Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="raceTime">00:00</div>
+                    <div class="stat-label">Race Time</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location Section -->
+        <div class="location-section">
+            <h2>📍 Location</h2>
+            <div class="location-info">
+                <div class="location-row">
+                    <span class="location-label">Latitude:</span>
+                    <span class="location-value" id="latitude">--</span>
+                </div>
+                <div class="location-row">
+                    <span class="location-label">Longitude:</span>
+                    <span class="location-value" id="longitude">--</span>
+                </div>
+                <div class="location-row">
+                    <span class="location-label">Accuracy:</span>
+                    <span class="location-value" id="accuracy">--</span>
+                </div>
+                <div class="location-row">
+                    <span class="location-label">Last Update:</span>
+                    <span class="location-value" id="lastUpdate">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages Section -->
+        <div class="messages-section">
+            <h2>💬 Cheer Messages</h2>
+            <div id="messagesList">
+                <div class="no-messages">No messages yet. Start your race to receive cheers!</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <h2>🎮 Controls</h2>
+            <div class="control-buttons">
+                <button class="btn" id="startRaceBtn" disabled>Start Race</button>
+                <button class="btn secondary" id="stopRaceBtn" disabled>Stop Race</button>
+                <button class="btn" id="getLocationBtn" disabled>Get Location</button>
+                <button class="btn" id="checkMessagesBtn" disabled>Check Messages</button>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alertContainer"></div>
+    </div>
+
+    <script>
+        class MobileAppSimulator {
+            constructor() {
+                this.runnerId = '';
+                this.activityId = '';
+                this.isConnected = false;
+                this.isRacing = false;
+                this.locationInterval = null;
+                this.messageInterval = null;
+                this.raceStartTime = null;
+                this.currentLocation = null;
+                
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.loadStoredIds();
+                console.log('🏃‍♂️ Mobile app simulator initialized');
+            }
+
+            bindEvents() {
+                document.getElementById('connectBtn').addEventListener('click', () => this.connect());
+                document.getElementById('startRaceBtn').addEventListener('click', () => this.startRace());
+                document.getElementById('stopRaceBtn').addEventListener('click', () => this.stopRace());
+                document.getElementById('getLocationBtn').addEventListener('click', () => this.getCurrentLocation());
+                document.getElementById('checkMessagesBtn').addEventListener('click', () => this.checkMessages());
+            }
+
+            loadStoredIds() {
+                const storedRunnerId = localStorage.getItem('runnerId');
+                const storedActivityId = localStorage.getItem('activityId');
+                
+                if (storedRunnerId) {
+                    document.getElementById('runnerId').value = storedRunnerId;
+                }
+                if (storedActivityId) {
+                    document.getElementById('activityId').value = storedActivityId;
+                }
+            }
+
+            async connect() {
+                const runnerId = document.getElementById('runnerId').value.trim();
+                const activityId = document.getElementById('activityId').value.trim();
+
+                if (!runnerId || !activityId) {
+                    this.showAlert('Please enter both Runner ID and Activity ID', 'error');
+                    return;
+                }
+
+                if (runnerId.length !== 20 || activityId.length !== 20) {
+                    this.showAlert('Both IDs must be exactly 20 characters long', 'error');
+                    return;
+                }
+
+                try {
+                    // Test connection by fetching runner data
+                    const response = await fetch(`/api/runner/${runnerId}/activity/${activityId}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    this.runnerId = runnerId;
+                    this.activityId = activityId;
+                    this.isConnected = true;
+
+                    // Store IDs locally
+                    localStorage.setItem('runnerId', runnerId);
+                    localStorage.setItem('activityId', activityId);
+
+                    // Update UI
+                    this.updateConnectionStatus('online', 'Connected');
+                    this.enableControls();
+                    this.updateStats(data.currentStats);
+                    
+                    if (data.lastLocation) {
+                        this.updateLocation(data.lastLocation.lat, data.lastLocation.lng, 10);
+                    }
+
+                    this.showAlert('Successfully connected to tracking system!', 'success');
+                    
+                    // Check if race is already active
+                    if (data.activity.status === 'active' && data.activity.startTime) {
+                        this.raceStartTime = new Date(data.activity.startTime);
+                        this.startRace();
+                    }
+
+                } catch (error) {
+                    console.error('❌ Connection failed:', error);
+                    this.showAlert('Failed to connect. Please check your IDs and try again.', 'error');
+                }
+            }
+
+            async startRace() {
+                if (!this.isConnected) {
+                    this.showAlert('Please connect first', 'error');
+                    return;
+                }
+
+                try {
+                    // Get current location
+                    await this.getCurrentLocation();
+
+                    if (!this.currentLocation) {
+                        this.showAlert('Unable to get current location. Please enable location services.', 'error');
+                        return;
+                    }
+
+                    // Start race on server
+                    const response = await fetch(`/api/runner/${this.runnerId}/activity/${this.activityId}/start`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            startLocation: this.currentLocation
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    this.isRacing = true;
+                    this.raceStartTime = new Date(data.startTime);
+                    
+                    // Start location updates
+                    this.startLocationUpdates();
+                    
+                    // Start message checking
+                    this.startMessageChecking();
+                    
+                    // Update UI
+                    document.getElementById('startRaceBtn').disabled = true;
+                    document.getElementById('stopRaceBtn').disabled = false;
+                    
+                    this.showAlert('Race started! Location updates and message checking enabled.', 'success');
+                    
+                    // Start race time updates
+                    this.startRaceTimeUpdates();
+
+                } catch (error) {
+                    console.error('❌ Failed to start race:', error);
+                    this.showAlert('Failed to start race. Please try again.', 'error');
+                }
+            }
+
+            async stopRace() {
+                this.isRacing = false;
+                
+                // Stop intervals
+                if (this.locationInterval) {
+                    clearInterval(this.locationInterval);
+                    this.locationInterval = null;
+                }
+                
+                if (this.messageInterval) {
+                    clearInterval(this.messageInterval);
+                    this.messageInterval = null;
+                }
+                
+                // Update UI
+                document.getElementById('startRaceBtn').disabled = false;
+                document.getElementById('stopRaceBtn').disabled = true;
+                
+                this.showAlert('Race stopped. Location updates and message checking disabled.', 'info');
+            }
+
+            async getCurrentLocation() {
+                return new Promise((resolve) => {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                const location = {
+                                    lat: position.coords.latitude,
+                                    lng: position.coords.longitude,
+                                    accuracy: position.coords.accuracy
+                                };
+                                
+                                this.currentLocation = location;
+                                this.updateLocation(location.lat, location.lng, location.accuracy);
+                                resolve(location);
+                            },
+                            (error) => {
+                                console.error('❌ Geolocation error:', error);
+                                // Use Berlin coordinates as fallback for demo
+                                const berlinLocation = {
+                                    lat: 52.5163 + (Math.random() - 0.5) * 0.01,
+                                    lng: 13.3777 + (Math.random() - 0.5) * 0.01,
+                                    accuracy: 10
+                                };
+                                
+                                this.currentLocation = berlinLocation;
+                                this.updateLocation(berlinLocation.lat, berlinLocation.lng, berlinLocation.accuracy);
+                                resolve(berlinLocation);
+                            },
+                            {
+                                enableHighAccuracy: true,
+                                timeout: 10000,
+                                maximumAge: 60000
+                            }
+                        );
+                    } else {
+                        this.showAlert('Geolocation not supported by this browser', 'error');
+                        resolve(null);
+                    }
+                });
+            }
+
+            startLocationUpdates() {
+                // Send location every 10 seconds
+                this.locationInterval = setInterval(async () => {
+                    if (this.isRacing && this.currentLocation) {
+                        await this.sendLocationUpdate();
+                    }
+                }, 10000);
+                
+                console.log('📍 Location updates started (every 10 seconds)');
+            }
+
+            async sendLocationUpdate() {
+                if (!this.currentLocation) return;
+
+                try {
+                    // Simulate movement for demo
+                    const movement = (Math.random() - 0.5) * 0.001;
+                    const newLat = this.currentLocation.lat + movement;
+                    const newLng = this.currentLocation.lng + movement;
+                    
+                    this.currentLocation = {
+                        lat: newLat,
+                        lng: newLng,
+                        accuracy: this.currentLocation.accuracy
+                    };
+
+                    // Send to server
+                    const response = await fetch(`/api/runner/${this.runnerId}/activity/${this.activityId}/location`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            lat: this.currentLocation.lat,
+                            lng: this.currentLocation.lng,
+                            accuracy: this.currentLocation.accuracy,
+                            heartRate: 140 + Math.floor(Math.random() * 40),
+                            speed: 3 + Math.random() * 2, // 3-5 m/s
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.updateLocation(this.currentLocation.lat, this.currentLocation.lng, this.currentLocation.accuracy);
+                        this.updateStats({
+                            distance: data.distance,
+                            remaining: Math.max(0, 42.2 - data.distance)
+                        });
+                    }
+
+                } catch (error) {
+                    console.error('❌ Failed to send location update:', error);
+                }
+            }
+
+            startMessageChecking() {
+                // Check for new messages every 30 seconds
+                this.messageInterval = setInterval(async () => {
+                    if (this.isRacing) {
+                        await this.checkMessages();
+                    }
+                }, 30000);
+                
+                console.log('💬 Message checking started (every 30 seconds)');
+            }
+
+            async checkMessages() {
+                try {
+                    const response = await fetch(`/api/runner/${this.runnerId}/activity/${this.activityId}/messages/unannounced`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const messages = await response.json();
+                    
+                    if (messages.length > 0) {
+                        this.displayMessages(messages);
+                        this.announceMessages(messages);
+                    }
+
+                } catch (error) {
+                    console.error('❌ Failed to check messages:', error);
+                }
+            }
+
+            displayMessages(messages) {
+                const messagesList = document.getElementById('messagesList');
+                
+                if (messages.length === 0) {
+                    messagesList.innerHTML = '<div class="no-messages">No messages yet. Start your race to receive cheers!</div>';
+                    return;
+                }
+
+                messagesList.innerHTML = messages.map(msg => `
+                    <div class="message-item">
+                        <div class="message-sender">${this.escapeHtml(msg.sender.name)}</div>
+                        <div class="message-text">${this.escapeHtml(msg.message)}</div>
+                        <div class="message-time">${new Date(msg.createdAt).toLocaleTimeString()}</div>
+                    </div>
+                `).join('');
+            }
+
+            announceMessages(messages) {
+                messages.forEach(msg => {
+                    // Simulate voice announcement
+                    this.simulateVoiceAnnouncement(msg);
+                    
+                    // Mark as announced
+                    this.markMessageAsAnnounced(msg.messageId);
+                });
+            }
+
+            simulateVoiceAnnouncement(message) {
+                // Create visual notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed; top: 20px; right: 20px; background: #667eea; color: white;
+                    padding: 15px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                    z-index: 10000; max-width: 300px; animation: slideIn 0.3s ease;
+                `;
+                notification.innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 5px;">🎤 Voice Announcement</div>
+                    <div style="font-size: 0.9rem;">"${this.escapeHtml(message.message)}"</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8; margin-top: 5px;">From: ${this.escapeHtml(message.sender.name)}</div>
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // Remove after 5 seconds
+                setTimeout(() => {
+                    notification.remove();
+                }, 5000);
+                
+                // Add slide-in animation
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes slideIn {
+                        from { transform: translateX(100%); opacity: 0; }
+                        to { transform: translateX(0); opacity: 1; }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                console.log(`🎤 Voice announcement: "${message.message}" from ${message.sender.name}`);
+            }
+
+            async markMessageAsAnnounced(messageId) {
+                try {
+                    await fetch(`/api/runner/${this.runnerId}/activity/${this.activityId}/messages/${messageId}/announce`, {
+                        method: 'POST'
+                    });
+                } catch (error) {
+                    console.error('❌ Failed to mark message as announced:', error);
+                }
+            }
+
+            startRaceTimeUpdates() {
+                // Update race time every second
+                setInterval(() => {
+                    if (this.raceStartTime) {
+                        const elapsed = Math.floor((Date.now() - this.raceStartTime) / 1000);
+                        const minutes = Math.floor(elapsed / 60);
+                        const seconds = elapsed % 60;
+                        const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        document.getElementById('raceTime').textContent = timeString;
+                    }
+                }, 1000);
+            }
+
+            updateConnectionStatus(status, message) {
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                
+                statusDot.className = `status-dot ${status}`;
+                statusText.textContent = message;
+            }
+
+            updateStats(stats) {
+                if (stats.distance !== undefined) {
+                    document.getElementById('distance').textContent = parseFloat(stats.distance).toFixed(1);
+                }
+                if (stats.pace !== undefined) {
+                    document.getElementById('pace').textContent = stats.pace;
+                }
+                if (stats.heartRate !== undefined) {
+                    document.getElementById('heartRate').textContent = stats.heartRate;
+                }
+            }
+
+            updateLocation(lat, lng, accuracy) {
+                document.getElementById('latitude').textContent = lat.toFixed(6);
+                document.getElementById('longitude').textContent = lng.toFixed(6);
+                document.getElementById('accuracy').textContent = `${accuracy.toFixed(1)}m`;
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            }
+
+            enableControls() {
+                document.getElementById('startRaceBtn').disabled = false;
+                document.getElementById('getLocationBtn').disabled = false;
+                document.getElementById('checkMessagesBtn').disabled = false;
+            }
+
+            showAlert(message, type = 'info') {
+                const alertContainer = document.getElementById('alertContainer');
+                const alert = document.createElement('div');
+                alert.className = `alert ${type}`;
+                alert.textContent = message;
+                
+                alertContainer.appendChild(alert);
+                alert.style.display = 'block';
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 5000);
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 DOM loaded, initializing Mobile App Simulator...');
+            window.mobileApp = new MobileAppSimulator();
+        });
+    </script>
+</body>
+</html>

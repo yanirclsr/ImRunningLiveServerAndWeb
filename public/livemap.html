@@ -22,177 +22,110 @@
     </div>
 </div>
 
-<div class="container" id="mainContainer">
-    <!-- Header Section -->
-    <!-- Fullscreen Map -->
-    <div id="map" class="fullscreen-map"></div>
+<!-- Fullscreen Map -->
+<div id="map" class="fullscreen-map"></div>
 
-    <!-- Top Header Overlay -->
-    <header class="header-overlay">
-        <div class="header-left">
-            <a href="/" class="back-btn">← I'm Running Live</a>
-            <h1 id="runnerTitle">🏃‍♂️ Yanir's Berlin Marathon</h1>
-            <div class="live-indicator">
-                <span class="live-dot"></span>
-                <span class="live-text">LIVE NOW!</span>
-            </div>
-        </div>
-
-        <div class="connection-status">
-            <div class="status-indicator" id="connectionStatus">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Connecting...</span>
-            </div>
-        </div>
-    </header>
-
-    <!-- Stats Overlay -->
-    <div class="stats-overlay">
-        <div class="stat-card primary">
-            <div class="stat-value" id="currentTime">01:00:31</div>
-            <div class="stat-label">RACE TIME</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="distance">20.9</div>
-            <div class="stat-label">DISTANCE (KM)</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="pace">5:22</div>
-            <div class="stat-label">PACE (/KM)</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="heartRate">175</div>
-            <div class="stat-label">HEART RATE</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value" id="remaining">21.3</div>
-            <div class="stat-label">REMAINING (KM)</div>
+<!-- Top Header Overlay -->
+<header class="header-overlay">
+    <div class="header-left">
+        <a href="/" class="back-btn">← I'm Running Live</a>
+        <h1 id="runnerTitle">🏃‍♂️ Yanir's Berlin Marathon</h1>
+        <div class="live-indicator">
+            <span class="live-dot"></span>
+            <span class="live-text">LIVE NOW!</span>
         </div>
     </div>
 
-    <!-- Cheer Menu (Right Side) -->
-    <div class="cheer-menu" id="cheerMenu">
-        <div class="cheer-tab">
-            <span>Cheer Me!</span>
-            <div class="cheer-arrow">〉</div>
+    <div class="connection-status">
+        <div class="status-indicator" id="connectionStatus">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Connecting...</span>
+        </div>
+    </div>
+</header>
+
+<!-- Stats Overlay -->
+<div class="stats-overlay">
+    <div class="stat-card primary">
+        <div class="stat-value" id="currentTime">01:00:31</div>
+        <div class="stat-label">RACE TIME</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="distance">20.9</div>
+        <div class="stat-label">DISTANCE (KM)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="pace">5:22</div>
+        <div class="stat-label">PACE (/KM)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="heartRate">175</div>
+        <div class="stat-label">HEART RATE</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" id="remaining">21.3</div>
+        <div class="stat-label">REMAINING (KM)</div>
+    </div>
+</div>
+
+<!-- Cheer Menu (Right Side) -->
+<div class="cheer-menu" id="cheerMenu">
+    <div class="cheer-tab">
+        <span>Cheer Me!</span>
+        <div class="cheer-arrow">〉</div>
+    </div>
+
+    <div class="cheer-content">
+        <h3>💪 Send Your Support!</h3>
+
+        <!-- Name Input -->
+        <div class="name-section">
+            <input type="text" id="senderName" placeholder="Your name..." required maxlength="30">
         </div>
 
-        <div class="cheer-content">
-            <h3>💪 Send Your Support!</h3>
+        <!-- Canned Cheers -->
+        <div class="canned-cheers">
+            <button class="cheer-btn red" data-message="You've got this!">
+                ❤️ You've got this!
+            </button>
+            <button class="cheer-btn yellow" data-message="Keep going!">
+                ⚡ Keep going!
+            </button>
+            <button class="cheer-btn orange" data-message="Almost there!">
+                🏆 Almost there!
+            </button>
+            <button class="cheer-btn orange-red" data-message="You're on fire!">
+                🔥 You're on fire!
+            </button>
+            <button class="cheer-btn green" data-message="Go Go Go!">
+                🚀 Go Go Go!
+            </button>
+            <button class="cheer-btn blue" data-message="Soccer wave celebration!">
+                ⚽ Soccer wave!
+            </button>
+            <button class="cheer-btn purple" data-message="Clapping for you!">
+                👏 Clapping!
+            </button>
+        </div>
 
-            <!-- Name Input -->
-            <div class="name-section">
-                <input type="text" id="senderName" placeholder="Your name..." required maxlength="30">
-            </div>
+        <!-- Message Status -->
+        <div class="message-status" id="messageStatus"></div>
 
-            <!-- Canned Cheers -->
-            <div class="canned-cheers">
-                <button class="cheer-btn red" data-message="You've got this!">
-                    ❤️ You've got this!
-                </button>
-                <button class="cheer-btn yellow" data-message="Keep going!">
-                    ⚡ Keep going!
-                </button>
-                <button class="cheer-btn orange" data-message="Almost there!">
-                    🏆 Almost there!
-                </button>
-                <button class="cheer-btn orange-red" data-message="You're on fire!">
-                    🔥 You're on fire!
-                </button>
-                <button class="cheer-btn green" data-message="Go Go Go!">
-                    🚀 Go Go Go!
-                </button>
-                <button class="cheer-btn blue" data-message="Soccer wave celebration!">
-                    ⚽ Soccer wave!
-                </button>
-                <button class="cheer-btn purple" data-message="Clapping for you!">
-                    👏 Clapping!
-                </button>
-            </div>
-
-            <!-- Message Status -->
-            <div class="message-status" id="messageStatus"></div>
-
-            <!-- Recent Messages -->
-            <div class="recent-messages">
-                <h4>Recent Cheers <span class="message-count" id="messageCount">(0)</span></h4>
-                <div class="messages-list" id="messagesList">
-                    <div class="loading-messages">Loading messages...</div>
-                </div>
+        <!-- Recent Messages -->
+        <div class="recent-messages">
+            <h4>Recent Cheers <span class="message-count" id="messageCount">(0)</span></h4>
+            <div class="messages-list" id="messagesList">
+                <div class="loading-messages">Loading messages...</div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Map Controls -->
-    <div class="map-controls-overlay">
-        <button class="map-btn" id="centerMapBtn" title="Center on Runner">
-            🎯
-        </button>
-    </div>
-
-    <!-- Route Milestones -->
-    <section class="milestones-section">
-        <h3>📍 Race Milestones</h3>
-        <div class="milestones-grid">
-            <div class="milestone" data-distance="5">
-                <div class="milestone-icon">🚀</div>
-                <div class="milestone-info">
-                    <div class="milestone-distance">5K</div>
-                    <div class="milestone-status upcoming" id="milestone-5">Upcoming</div>
-                    <div class="milestone-time" id="time-5">--:--</div>
-                </div>
-            </div>
-            <div class="milestone" data-distance="10">
-                <div class="milestone-icon">🎯</div>
-                <div class="milestone-info">
-                    <div class="milestone-distance">10K</div>
-                    <div class="milestone-status upcoming" id="milestone-10">Upcoming</div>
-                    <div class="milestone-time" id="time-10">--:--</div>
-                </div>
-            </div>
-            <div class="milestone" data-distance="21.1">
-                <div class="milestone-icon">⚡</div>
-                <div class="milestone-info">
-                    <div class="milestone-distance">Half Marathon</div>
-                    <div class="milestone-status upcoming" id="milestone-21">Upcoming</div>
-                    <div class="milestone-time" id="time-21">--:--</div>
-                </div>
-            </div>
-            <div class="milestone" data-distance="30">
-                <div class="milestone-icon">💪</div>
-                <div class="milestone-info">
-                    <div class="milestone-distance">30K</div>
-                    <div class="milestone-status upcoming" id="milestone-30">Upcoming</div>
-                    <div class="milestone-time" id="time-30">--:--</div>
-                </div>
-            </div>
-            <div class="milestone" data-distance="42.2">
-                <div class="milestone-icon">🏆</div>
-                <div class="milestone-info">
-                    <div class="milestone-distance">Finish Line!</div>
-                    <div class="milestone-status upcoming" id="milestone-42">42.2K</div>
-                    <div class="milestone-time" id="time-42">--:--</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-content">
-            <div class="platform-info">
-                <span>Powered by <strong>I'm Running Live</strong></span>
-                <span>•</span>
-                <span>Real-time tracking</span>
-                <span>•</span>
-                <span class="last-update">Last update: <span id="lastUpdate">--:--</span></span>
-            </div>
-            <div class="share-section">
-                <span>Share this live tracking:</span>
-                <button class="share-btn" id="shareBtn">📋 Copy Link</button>
-            </div>
-        </div>
-    </footer>
+<!-- Map Controls -->
+<div class="map-controls-overlay">
+    <button class="map-btn" id="centerMapBtn" title="Center on Runner">
+        🎯
+    </button>
 </div>
 
 <!-- Leaflet JS -->
