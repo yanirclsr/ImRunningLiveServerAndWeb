@@ -1,7 +1,7 @@
 // db/models.js - Mongoose data models for marathon tracking system
 const mongoose = require('mongoose');
 
-// User Schema
+// User Schema 123
 const userSchema = new mongoose.Schema({
     _id: {
         type: String,
