@@ -11,7 +11,8 @@
     "db:test": "node db/local-connect.js",
     "db:atlas": "node db/atlas-connect.js",
     "db:local": "node db/local-connect.js",
-    "db:status": "node -e \"require('./db/db').testConnection().then(console.log).catch(console.error)\""
+    "db:status": "node -e \"require('./db/db').testConnection().then(console.log).catch(console.error)\"",
+    "dev:all": "./run_imrunning_live_app.sh"
   },
   "keywords": ["marathon", "tracking", "real-time", "running", "live"],
   "author": "I'm Running Live",
