@@ -7,7 +7,7 @@ set -euo pipefail
 ### --- PATHS (relative to this script) --- ###
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_DIR="${SCRIPT_DIR}"                                   # this repo (server + API + webapp)
-IOS_DIR="$(cd "${SCRIPT_DIR}/../imrunningLive_ios" && pwd)"  # sibling iOS repo
+IOS_DIR="$(cd "${SCRIPT_DIR}/../imrunningLive_ios/Im Running App" && pwd)"  # iOS project folder
 
 ### --- CONFIG --- ###
 SERVER_PORT=3000
