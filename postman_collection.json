@@ -1,0 +1,376 @@
+{
+	"info": {
+		"_postman_id": "imrunning-live-api-collection",
+		"name": "I'm Running Live API",
+		"description": "Complete API collection for the I'm Running Live application. Test all endpoints including runner management, activity tracking, location updates, and messaging.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "12345678"
+	},
+	"item": [
+		{
+			"name": "Health & Status",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "health"]
+						},
+						"description": "Check if the API is running and healthy"
+					}
+				},
+				{
+					"name": "API Test",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test"]
+						},
+						"description": "Basic API test endpoint"
+					}
+				},
+				{
+					"name": "Homepage",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						},
+						"description": "Main homepage"
+					}
+				},
+				{
+					"name": "Activity Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/dashboard",
+							"host": ["{{base_url}}"],
+							"path": ["dashboard"]
+						},
+						"description": "View all recent activities in a beautiful web dashboard with tracking links"
+					}
+				}
+			]
+		},
+		{
+			"name": "Runner Management",
+			"item": [
+				{
+					"name": "Create Runner",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@example.com\",\n  \"displayName\": \"Test Runner\",\n  \"auth\": {\n    \"provider\": \"apple\",\n    \"sub\": \"apple-oidc-sub-test\"\n  },\n  \"preferences\": {\n    \"voice\": \"en-GB\",\n    \"cheersVolume\": 0.8\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/runners",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runners"]
+						},
+						"description": "Create a new runner account"
+					}
+				}
+			]
+		},
+		{
+			"name": "Activity Management",
+			"item": [
+				{
+					"name": "Start Activity",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"startLocation\": {\n    \"lat\": 52.5200,\n    \"lng\": 13.4050,\n    \"accuracy\": 10\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}/start",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}", "start"]
+						},
+						"description": "Start tracking an activity for a runner. Automatically creates user and activity if they don't exist. Returns comprehensive data including user, event, and activity details."
+					}
+				},
+				{
+					"name": "Update Location",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lat\": 52.5200,\n  \"lng\": 13.4050,\n  \"accuracy\": 10,\n  \"altitude\": 35,\n  \"speed\": 2.5,\n  \"heading\": 180,\n  \"heartRate\": 140,\n  \"cadence\": 160,\n  \"temperature\": 22,\n  \"humidity\": 65\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}/location",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}", "location"]
+						},
+						"description": "Update runner location during activity"
+					}
+				},
+				{
+					"name": "Get Activity Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}"]
+						},
+						"description": "Get current status and details of an activity"
+					}
+				},
+				{
+					"name": "Get Recent Activities",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/activities/recent?limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "activities", "recent"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of activities to return (default: 10)"
+								}
+							]
+						},
+						"description": "Get recent activities with tracking URLs and details"
+					}
+				}
+			]
+		},
+		{
+			"name": "Messaging & Cheers",
+			"item": [
+				{
+					"name": "Send Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"cheer\",\n  \"content\": \"Go runner! You're doing great!\",\n  \"senderName\": \"Supporter\",\n  \"senderId\": \"supporter123\",\n  \"location\": {\n    \"lat\": 52.5200,\n    \"lng\": 13.4050\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}/messages",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}", "messages"]
+						},
+						"description": "Send a message or cheer to a runner"
+					}
+				},
+				{
+					"name": "Get Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}/messages",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}", "messages"]
+						},
+						"description": "Get all messages for an activity"
+					}
+				},
+				{
+					"name": "Announce Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"announcement\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}/messages/{{message_id}}/announce",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}", "messages", "{{message_id}}", "announce"]
+						},
+						"description": "Announce a message to the runner"
+					}
+				},
+				{
+					"name": "Get Unannounced Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/runner/{{runner_id}}/activity/{{activity_id}}/messages/unannounced",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "{{runner_id}}", "activity", "{{activity_id}}", "messages", "unannounced"]
+						},
+						"description": "Get messages that haven't been announced yet"
+					}
+				}
+			]
+		},
+		{
+			"name": "Public Views",
+			"item": [
+				{
+					"name": "Runner Activity View",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/runner/{{runner_id}}/{{activity_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["runner", "{{runner_id}}", "{{activity_id}}"]
+						},
+						"description": "Public view of a runner's activity"
+					}
+				},
+				{
+					"name": "User Activity View",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/{{user_id}}/{{activity_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["{{user_id}}", "{{activity_id}}"]
+						},
+						"description": "Public view of a user's activity"
+					}
+				}
+			]
+		},
+		{
+			"name": "Test Endpoints",
+			"item": [
+				{
+					"name": "Test Activity Data",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"testType\": \"activity_data\",\n  \"runnerId\": \"usr_test123\",\n  \"activityId\": \"act_test456\",\n  \"location\": {\n    \"lat\": 52.5200,\n    \"lng\": 13.4050,\n    \"accuracy\": 10\n  },\n  \"metrics\": {\n    \"heartRate\": 140,\n  \"speed\": 2.5,\n  \"cadence\": 160\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/test/activity",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "activity"]
+						},
+						"description": "Test endpoint for sending activity data - useful for testing your iOS app integration"
+					}
+				},
+				{
+					"name": "Test Start Activity (Auto-Create)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"startLocation\": {\n    \"lat\": 52.5200,\n    \"lng\": 13.4050,\n    \"accuracy\": 10\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/runner/usr_a1b2c3d4/activity/act_e5f6g7h8/start",
+							"host": ["{{base_url}}"],
+							"path": ["api", "runner", "usr_a1b2c3d4", "activity", "act_e5f6g7h8", "start"]
+						},
+						"description": "Test the start activity endpoint with auto-creation of user and activity. This demonstrates the new functionality where missing users/activities are automatically created."
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-generate test IDs if not set",
+					"if (!pm.environment.get('runner_id')) {",
+					"    pm.environment.set('runner_id', 'usr_' + Math.random().toString(36).substr(2, 8));",
+					"}",
+					"if (!pm.environment.get('activity_id')) {",
+					"    pm.environment.set('activity_id', 'act_' + Math.random().toString(36).substr(2, 8));",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "runner_id",
+			"value": "usr_test123",
+			"type": "string"
+		},
+		{
+			"key": "activity_id",
+			"value": "act_test456",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "usr_test123",
+			"type": "string"
+		},
+		{
+			"key": "message_id",
+			"value": "msg_test789",
+			"type": "string"
+		}
+	]
+}

@@ -88,6 +88,97 @@ app.use((req, res, next) => {
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Dashboard - view recent activities in browser
+app.get('/dashboard', async (req, res) => {
+    try {
+        const activities = await Activity.find()
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .populate('runnerId', 'displayName email')
+            .populate('eventId', 'name date type distance');
+        
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        
+        let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>I'm Running Live - Activity Dashboard</title>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f7; }
+                .container { max-width: 1200px; margin: 0 auto; }
+                h1 { color: #1d1d1f; text-align: center; margin-bottom: 30px; }
+                .activity-card { background: white; border-radius: 12px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .activity-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+                .status { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+                .status.planned { background: #e3f2fd; color: #1976d2; }
+                .status.active { background: #e8f5e8; color: #2e7d32; }
+                .status.finished { background: #f3e5f5; color: #7b1fa2; }
+                .runner-info { margin-bottom: 10px; }
+                .event-info { margin-bottom: 15px; }
+                .tracking-links { display: flex; gap: 10px; flex-wrap: wrap; }
+                .tracking-links a { padding: 8px 16px; background: #007aff; color: white; text-decoration: none; border-radius: 8px; font-size: 14px; }
+                .tracking-links a:hover { background: #0056b3; }
+                .timestamp { color: #86868b; font-size: 12px; }
+                .refresh-btn { display: block; margin: 20px auto; padding: 12px 24px; background: #007aff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+                .refresh-btn:hover { background: #0056b3; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🏃‍♂️ I'm Running Live - Activity Dashboard</h1>
+                <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Activities</button>
+        `;
+        
+        if (activities.length === 0) {
+            html += '<div class="activity-card"><p>No activities found. Start an activity to see it here!</p></div>';
+        } else {
+            activities.forEach(activity => {
+                const statusClass = activity.status || 'planned';
+                const statusText = (activity.status || 'planned').toUpperCase();
+                
+                html += `
+                <div class="activity-card">
+                    <div class="activity-header">
+                        <h3>Activity ${activity._id}</h3>
+                        <span class="status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="runner-info">
+                        <strong>Runner:</strong> ${activity.runnerId?.displayName || 'Unknown'} (${activity.runnerId?._id || 'N/A'})
+                    </div>
+                    <div class="event-info">
+                        <strong>Event:</strong> ${activity.eventId?.name || 'Unknown'} - ${activity.eventId?.type || 'N/A'} (${activity.eventId?.distance || 'N/A'}m)
+                    </div>
+                    <div class="timestamp">
+                        <strong>Created:</strong> ${new Date(activity.createdAt).toLocaleString()}
+                        ${activity.startedAt ? `<br><strong>Started:</strong> ${new Date(activity.startedAt).toLocaleString()}` : ''}
+                    </div>
+                    <div class="tracking-links">
+                        <a href="/runner/${activity.runnerId?._id || 'unknown'}/${activity._id}" target="_blank">👁️ View Activity</a>
+                        <a href="/${activity.runnerId?._id || 'unknown'}/${activity._id}" target="_blank">👤 User View</a>
+                        <a href="/api/runner/${activity.runnerId?._id || 'unknown'}/activity/${activity._id}" target="_blank">🔧 API Data</a>
+                    </div>
+                </div>
+                `;
+            });
+        }
+        
+        html += `
+            </div>
+        </body>
+        </html>
+        `;
+        
+        res.send(html);
+        
+    } catch (error) {
+        console.error('❌ Error generating dashboard:', error);
+        res.status(500).send('Error generating dashboard');
+    }
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log(`🔌 New client connected: ${socket.id}`);
@@ -126,6 +217,135 @@ app.get('/api/test', (req, res) => {
         platform: 'imrunning.live',
         version: '1.0.0'
     });
+});
+
+// Test ID validation endpoint
+app.get('/api/test/validation/:userId/:activityId', (req, res) => {
+    const { userId, activityId } = req.params;
+    
+    const validation = {
+        userId: {
+            value: userId,
+            isValid: validateId(userId),
+            expectedFormat: 'usr_XXXXXXXX (8 alphanumeric characters)'
+        },
+        activityId: {
+            value: activityId,
+            isValid: validateId(activityId),
+            expectedFormat: 'act_XXXXXXXX (8 alphanumeric characters)'
+        },
+        bothValid: validateId(userId) && validateId(activityId),
+        liveMapUrl: `/usr_2758f8dd/act_a632ae7b`,
+        runnerPageUrl: `/runner/usr_2758f8dd/act_a632ae7b`
+    };
+    
+    res.json(validation);
+});
+
+// Test activity data endpoint - for testing iOS app integration
+app.post('/api/test/activity', async (req, res) => {
+    try {
+        const { testType, runnerId, activityId, location, metrics } = req.body;
+        
+        console.log('🧪 Test activity data received:', {
+            testType,
+            runnerId,
+            activityId,
+            location,
+            metrics
+        });
+
+        // Simulate processing the activity data
+        const response = {
+            success: true,
+            message: 'Test activity data received successfully',
+            timestamp: new Date().toISOString(),
+            data: {
+                testType,
+                runnerId,
+                activityId,
+                location,
+                metrics,
+                processed: true
+            },
+            serverInfo: {
+                status: 'running',
+                port: PORT,
+                uptime: process.uptime()
+            }
+        };
+
+        // If this was a real activity, we would:
+        // 1. Validate the runner and activity IDs
+        // 2. Store location data
+        // 3. Update activity metrics
+        // 4. Emit real-time updates via Socket.IO
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('❌ Error processing test activity data:', error);
+        res.status(500).json({
+            error: 'Failed to process test activity data',
+            message: error.message
+        });
+    }
+});
+
+// Get recent activities with tracking links
+app.get('/api/activities/recent', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
+        
+        // Get recent activities with user and event details
+        const activities = await Activity.find()
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .populate('runnerId', 'displayName email')
+            .populate('eventId', 'name date type distance');
+        
+        // Format activities with tracking URLs
+        const formattedActivities = activities.map(activity => {
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            return {
+                id: activity._id,
+                status: activity.status,
+                createdAt: activity.createdAt,
+                startedAt: activity.startedAt,
+                runner: {
+                    id: activity.runnerId._id,
+                    displayName: activity.runnerId.displayName,
+                    email: activity.runnerId.email
+                },
+                event: {
+                    id: activity.eventId._id,
+                    name: activity.eventId.name,
+                    date: activity.eventId.date,
+                    type: activity.eventId.type,
+                    distance: activity.eventId.distance
+                },
+                trackingUrls: {
+                    runner: `${baseUrl}/runner/${activity.runnerId._id}/${activity._id}`,
+                    user: `${baseUrl}/${activity.runnerId._id}/${activity._id}`,
+                    api: `${baseUrl}/api/runner/${activity.runnerId._id}/activity/${activity._id}`
+                }
+            };
+        });
+        
+        res.json({
+            success: true,
+            count: formattedActivities.length,
+            activities: formattedActivities,
+            message: `Found ${formattedActivities.length} recent activities`
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching recent activities:', error);
+        res.status(500).json({
+            error: 'Failed to fetch recent activities',
+            message: error.message
+        });
+    }
 });
 
 // Health check
@@ -228,47 +448,164 @@ app.post('/api/runner/:runnerId/activity/:activityId/start', async (req, res) =>
             return res.status(400).json({ error: 'Invalid ID format' });
         }
 
-        // Update activity status
-        const activity = await Activity.findOneAndUpdate(
-            { runnerId, activityId },
-            { 
-                status: 'active',
-                startTime: new Date()
-            },
-            { new: true }
-        );
+        let user = await User.findById(runnerId);
+        let activity = await Activity.findById(activityId);
+        let event = null;
 
-        if (!activity) {
-            return res.status(404).json({ error: 'Activity not found' });
+        // If user doesn't exist, create a new one with dummy data
+        if (!user) {
+            console.log(`👤 Creating new user with ID: ${runnerId}`);
+            user = new User({
+                _id: runnerId,
+                email: `${runnerId}@example.com`,
+                displayName: `Runner ${runnerId.slice(-4)}`,
+                auth: {
+                    provider: 'apple',
+                    sub: `apple-oidc-sub-${runnerId.slice(-8)}`
+                },
+                preferences: {
+                    voice: 'en-GB',
+                    cheersVolume: 0.8
+                }
+            });
+            await user.save();
+            console.log(`✅ Created new user: ${user.displayName} (${user._id})`);
         }
+
+        // If activity doesn't exist, create a new one
+        if (!activity) {
+            console.log(`🏃‍♂️ Creating new activity with ID: ${activityId}`);
+            
+            // Get the Berlin Marathon event (or create one if it doesn't exist)
+            event = await Event.findOne({ name: /berlin.*marathon/i });
+            if (!event) {
+                console.log('🏁 Creating Berlin Marathon event');
+                event = new Event({
+                    _id: generateEventId(),
+                    name: 'Berlin Marathon 2025',
+                    date: new Date('2025-09-28'),
+                    location: {
+                        city: 'Berlin',
+                        country: 'Germany',
+                        coordinates: {
+                            type: 'Point',
+                            coordinates: [13.4050, 52.5200] // [lng, lat]
+                        }
+                    },
+                    type: 'marathon',
+                    distance: 42195,
+                    description: 'The 52nd Berlin Marathon - one of the world\'s fastest marathon courses',
+                    status: 'upcoming',
+                    registration: {
+                        open: true,
+                        deadline: new Date('2025-08-28'),
+                        maxParticipants: 50000
+                    },
+                    tracking: {
+                        enabled: true,
+                        startTime: new Date('2025-09-28T08:00:00Z'),
+                        endTime: new Date('2025-09-28T18:00:00Z'),
+                        checkpoints: [
+                            { km: 5, name: 'Brandenburg Gate' },
+                            { km: 10, name: 'Potsdamer Platz' },
+                            { km: 21.1, name: 'Half Marathon' },
+                            { km: 30, name: 'Alexanderplatz' },
+                            { km: 35, name: 'Unter den Linden' },
+                            { km: 42.195, name: 'Finish Line' }
+                        ]
+                    }
+                });
+                await event.save();
+                console.log(`✅ Created Berlin Marathon event: ${event.name} (${event._id})`);
+            }
+
+            // Create the new activity
+            activity = new Activity({
+                _id: activityId,
+                runnerId: user._id,
+                eventId: event._id,
+                status: 'planned',
+                share: {
+                    public: true,
+                    token: generateShareToken(),
+                    expiresAt: null
+                },
+                settings: {
+                    pingIntervalSec: 10,
+                    cheersEnabled: true,
+                    ttsLang: 'en-US'
+                }
+            });
+            await activity.save();
+            console.log(`✅ Created new activity: ${activity._id} for user ${user.displayName}`);
+        } else {
+            // Get the event for existing activity
+            event = await Event.findById(activity.eventId);
+        }
+
+        // Update activity status to active and set start time
+        activity.status = 'active';
+        activity.startedAt = new Date();
+        activity.updatedAt = new Date();
+        await activity.save();
 
         // Save initial location if provided
         if (startLocation && startLocation.lat && startLocation.lng) {
-            const location = new Location({
-                activityId,
-                runnerId,
-                timestamp: new Date(),
-                coordinates: {
+            const location = new LocationPing({
+                meta: {
+                    activityId: activity._id,
+                    runnerId: user._id
+                },
+                ts: new Date(),
+                loc: {
                     type: 'Point',
                     coordinates: [startLocation.lng, startLocation.lat]
                 },
                 accuracy: startLocation.accuracy || 10,
-                distance: 0
+                elevM: startLocation.altitude,
+                speedMps: startLocation.speed,
+                heading: startLocation.heading
             });
             await location.save();
+            console.log(`📍 Saved initial location: ${startLocation.lat}, ${startLocation.lng}`);
         }
 
         // Notify connected clients
         io.to(`${runnerId}-${activityId}`).emit('activity-started', {
-            runnerId,
-            activityId,
-            startTime: activity.startTime
+            runnerId: user._id,
+            activityId: activity._id,
+            startTime: activity.startedAt
         });
 
+        // Return comprehensive data
         res.json({
             success: true,
             message: 'Activity started successfully',
-            startTime: activity.startTime
+            data: {
+                user: {
+                    id: user._id,
+                    displayName: user.displayName,
+                    email: user.email,
+                    preferences: user.preferences
+                },
+                event: {
+                    id: event._id,
+                    name: event.name,
+                    date: event.date,
+                    location: event.location,
+                    type: event.type,
+                    distance: event.distance
+                },
+                activity: {
+                    id: activity._id,
+                    status: activity.status,
+                    startedAt: activity.startedAt,
+                    share: activity.share,
+                    settings: activity.settings
+                },
+                startLocation: startLocation || null
+            },
+            startTime: activity.startedAt
         });
 
     } catch (error) {
@@ -301,62 +638,54 @@ app.post('/api/runner/:runnerId/activity/:activityId/location', async (req, res)
         }
 
         // Get previous location to calculate distance
-        const previousLocation = await Location.findOne(
-            { activityId, runnerId },
+        const previousLocation = await LocationPing.findOne(
+            { 'meta.activityId': activityId, 'meta.runnerId': runnerId },
             {},
-            { sort: { timestamp: -1 } }
+            { sort: { ts: -1 } }
         );
 
         let cumulativeDistance = 0;
         if (previousLocation) {
-            const prevCoords = previousLocation.coordinates.coordinates;
+            const prevCoords = previousLocation.loc.coordinates;
             const distance = calculateDistance(
                 prevCoords[1], prevCoords[0], // lat, lng
                 lat, lng
             );
-            cumulativeDistance = previousLocation.distance + distance;
+            cumulativeDistance = (previousLocation.distance || 0) + distance;
         }
 
         // Create new location record
-        const location = new Location({
-            activityId,
-            runnerId,
-            timestamp: new Date(),
-            coordinates: {
+        const location = new LocationPing({
+            meta: {
+                activityId,
+                runnerId
+            },
+            ts: new Date(),
+            loc: {
                 type: 'Point',
                 coordinates: [lng, lat] // MongoDB expects [lng, lat]
             },
             accuracy: accuracy || 10,
-            altitude,
-            speed,
-            heading,
+            elevM: altitude,
+            speedMps: speed,
+            heading: heading,
             distance: cumulativeDistance,
-            heartRate,
-            cadence,
-            temperature,
-            humidity
+            heartRate: heartRate,
+            cadence: cadence,
+            temperature: temperature,
+            humidity: humidity
         });
 
         await location.save();
 
         // Update race stats
-        const activity = await Activity.findOne({ runnerId, activityId });
-        if (activity && activity.startTime) {
-            const elapsedTime = Math.floor((Date.now() - activity.startTime) / 1000);
-            const currentPace = calculatePace(elapsedTime, cumulativeDistance);
+        const activity = await Activity.findById(activityId);
+        if (activity && activity.startedAt) {
+            const elapsedTime = Math.floor((Date.now() - activity.startedAt) / 1000);
+            const currentPace = calculatePace(elapsedTime, cumulativeDistance * 1000); // Convert km to meters
             
-            await RaceStats.findOneAndUpdate(
-                { activityId, runnerId },
-                {
-                    'currentStats.distance': cumulativeDistance,
-                    'currentStats.elapsedTime': elapsedTime,
-                    'currentStats.currentPace': currentPace,
-                    'currentStats.remainingDistance': Math.max(0, 42.2 - cumulativeDistance),
-                    'currentStats.heartRate.current': heartRate,
-                    lastUpdated: new Date()
-                },
-                { upsert: true }
-            );
+            // Note: RaceStats model doesn't exist, so we'll skip this for now
+            console.log(`📊 Race stats - Distance: ${cumulativeDistance}km, Time: ${elapsedTime}s, Pace: ${currentPace}s/km`);
         }
 
         // Notify connected clients
@@ -367,7 +696,7 @@ app.post('/api/runner/:runnerId/activity/:activityId/location', async (req, res)
                 lat,
                 lng,
                 distance: cumulativeDistance,
-                timestamp: location.timestamp
+                timestamp: location.ts
             }
         });
 
@@ -375,7 +704,7 @@ app.post('/api/runner/:runnerId/activity/:activityId/location', async (req, res)
             success: true,
             message: 'Location updated successfully',
             distance: cumulativeDistance,
-            timestamp: location.timestamp
+            timestamp: location.ts
         });
 
     } catch (error) {
@@ -396,19 +725,22 @@ app.get('/api/runner/:runnerId/activity/:activityId', async (req, res) => {
             return res.status(400).json({ error: 'Invalid ID format' });
         }
 
-        // Get activity and runner info
-        const [activity, runner, raceStats, latestLocation] = await Promise.all([
-            Activity.findOne({ runnerId, activityId }),
-            Runner.findOne({ runnerId }),
-            RaceStats.findOne({ activityId, runnerId }),
-            Location.findOne(
-                { activityId, runnerId },
-                {},
-                { sort: { timestamp: -1 } }
-            )
-        ]);
+        // Get activity, user, and event info
+        const activity = await Activity.findById(activityId);
+        const user = await User.findById(runnerId);
+        
+        if (!activity || !user) {
+            return res.status(404).json({ error: 'Runner or activity not found' });
+        }
+        
+        const event = await Event.findById(activity.eventId);
+        const latestLocation = await LocationPing.findOne(
+            { 'meta.activityId': activityId, 'meta.runnerId': runnerId },
+            {},
+            { sort: { ts: -1 } }
+        );
 
-        if (!activity || !runner) {
+        if (!activity || !user) {
             return res.status(404).json({ error: 'Runner or activity not found' });
         }
 
@@ -421,14 +753,15 @@ app.get('/api/runner/:runnerId/activity/:activityId', async (req, res) => {
             remaining: 42.2
         };
 
-        if (activity.startTime && latestLocation) {
-            const elapsedTime = Math.floor((Date.now() - activity.startTime) / 1000);
+        if (activity.startedAt && latestLocation) {
+            const elapsedTime = Math.floor((Date.now() - activity.startedAt) / 1000);
+            const distanceKm = latestLocation.distance || 0;
             currentStats = {
-                distance: latestLocation.distance || 0,
-                pace: calculatePace(elapsedTime, latestLocation.distance || 0),
+                distance: distanceKm,
+                pace: formatTime(calculatePace(elapsedTime, distanceKm * 1000)),
                 heartRate: latestLocation.heartRate || 0,
                 currentTime: formatTime(elapsedTime),
-                remaining: Math.max(0, 42.2 - (latestLocation.distance || 0))
+                remaining: Math.max(0, 42.2 - distanceKm)
             };
         }
 
@@ -436,22 +769,22 @@ app.get('/api/runner/:runnerId/activity/:activityId', async (req, res) => {
             runnerId,
             activityId,
             runner: {
-                name: runner.name,
-                city: runner.profile?.city,
-                country: runner.profile?.country
+                name: user.displayName || 'Unknown Runner',
+                city: user.profile?.city || 'Unknown',
+                country: user.profile?.country || 'Unknown'
             },
             activity: {
-                raceName: activity.raceName,
-                raceDate: activity.raceDate,
-                status: activity.status,
-                startTime: activity.startTime,
-                targetTime: activity.targetTime
+                raceName: event?.name || 'Unknown Race',
+                raceDate: event?.date || new Date(),
+                status: activity.status || 'planned',
+                startTime: activity.startedAt,
+                targetTime: null
             },
             currentStats,
             lastLocation: latestLocation ? {
-                lat: latestLocation.coordinates.coordinates[1],
-                lng: latestLocation.coordinates.coordinates[0],
-                timestamp: latestLocation.timestamp
+                lat: latestLocation.loc.coordinates[1],
+                lng: latestLocation.loc.coordinates[0],
+                timestamp: latestLocation.ts
             } : null,
             platform: 'imrunning.live'
         });
@@ -479,40 +812,37 @@ app.post('/api/runner/:runnerId/activity/:activityId/messages', async (req, res)
             return res.status(400).json({ error: 'Sender name and message are required' });
         }
 
-        // Create message
-        const newMessage = new Message({
-            messageId: generateUniqueId(),
+        // Create cheer message
+        const newCheer = new Cheer({
             activityId,
-            runnerId,
-            sender: {
+            from: {
                 name: sanitizeInput(sender),
-                email: email ? sanitizeInput(email) : undefined,
-                relationship: relationship || 'supporter'
+                ip: getClientIP(req)
             },
             message: sanitizeInput(message),
-            messageType: 'cheer'
+            createdAt: new Date()
         });
 
-        await newMessage.save();
+        await newCheer.save();
 
         // Notify connected clients
         io.to(`${runnerId}-${activityId}`).emit('new-message', {
             runnerId,
             activityId,
             message: {
-                messageId: newMessage.messageId,
-                sender: newMessage.sender.name,
-                message: newMessage.message,
-                timestamp: newMessage.createdAt
+                messageId: newCheer._id,
+                sender: newCheer.from.name,
+                message: newCheer.message,
+                timestamp: newCheer.createdAt
             }
         });
 
         res.json({
             success: true,
-            messageId: newMessage.messageId,
-            sender: newMessage.sender.name,
-            message: newMessage.message,
-            timestamp: newMessage.createdAt,
+            messageId: newCheer._id,
+            sender: newCheer.from.name,
+            message: newCheer.message,
+            timestamp: newCheer.createdAt,
             runnerId,
             activityId,
             platform: 'imrunning.live'
@@ -537,15 +867,24 @@ app.get('/api/runner/:runnerId/activity/:activityId/messages', async (req, res) 
             return res.status(400).json({ error: 'Invalid ID format' });
         }
 
-        const messages = await Message.find(
-            { activityId, runnerId },
-            { sender: 1, message: 1, messageType: 1, createdAt: 1 }
+        const messages = await Cheer.find(
+            { activityId },
+            { from: 1, message: 1, createdAt: 1 }
         )
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
         .skip(parseInt(offset));
 
-        res.json(messages);
+        // Transform to match expected format
+        const formattedMessages = messages.map(msg => ({
+            messageId: msg._id,
+            sender: msg.from.name,
+            message: msg.message,
+            messageType: 'cheer',
+            createdAt: msg.createdAt
+        }));
+
+        res.json(formattedMessages);
 
     } catch (error) {
         console.error('❌ Error getting messages:', error);
@@ -565,11 +904,10 @@ app.post('/api/runner/:runnerId/activity/:activityId/messages/:messageId/announc
             return res.status(400).json({ error: 'Invalid ID format' });
         }
 
-        const message = await Message.findOneAndUpdate(
-            { messageId, activityId, runnerId },
+        const message = await Cheer.findOneAndUpdate(
+            { _id: messageId, activityId },
             { 
-                isAnnounced: true,
-                announcedAt: new Date()
+                deliveredAt: new Date()
             },
             { new: true }
         );
@@ -602,9 +940,9 @@ app.get('/api/runner/:runnerId/activity/:activityId/messages/unannounced', async
             return res.status(400).json({ error: 'Invalid ID format' });
         }
 
-        const messages = await Message.find(
-            { activityId, runnerId, isAnnounced: false },
-            { sender: 1, message: 1, messageType: 1, createdAt: 1 }
+        const messages = await Cheer.find(
+            { activityId, deliveredAt: { $exists: false } },
+            { from: 1, message: 1, createdAt: 1 }
         )
         .sort({ createdAt: 1 })
         .limit(10);
@@ -657,12 +995,16 @@ app.get('/runner/:runnerId/:activityId', (req, res) => {
 app.get('/:userId/:activityId', (req, res) => {
     const { userId, activityId } = req.params;
 
+    console.log(`📍 Live map requested for User: ${userId}, Activity: ${activityId}`);
+    console.log(`🔍 Validating IDs - User: ${validateId(userId)}, Activity: ${validateId(activityId)}`);
+
     if (!validateId(userId) || !validateId(activityId)) {
-        console.log(`Invalid ID format - User: ${userId}, Activity: ${activityId}`);
+        console.log(`❌ Invalid ID format - User: ${userId}, Activity: ${activityId}`);
+        console.log(`📝 Expected format: usr_XXXXXXXX or act_XXXXXXXX`);
         return res.redirect('/');
     }
 
-    console.log(`📍 Live map requested for User: ${userId}, Activity: ${activityId}`);
+    console.log(`✅ Valid IDs, serving live map`);
     res.sendFile(path.join(__dirname, 'public', 'livemap.html'));
 });
 

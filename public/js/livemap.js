@@ -35,10 +35,13 @@ class LiveTracker {
         console.log(`🏃‍♂️ Initializing live tracker for User: ${this.userId}, Activity: ${this.activityId}`);
 
         // Validate IDs
+        console.log(`🔍 Validating IDs - User: ${this.userId}, Activity: ${this.activityId}`);
         if (!this.validateIds()) {
+            console.error(`❌ ID validation failed for User: ${this.userId}, Activity: ${this.activityId}`);
             this.redirectToHome();
             return;
         }
+        console.log(`✅ ID validation passed`);
 
         try {
             // Show loading screen briefly
@@ -65,8 +68,14 @@ class LiveTracker {
     }
 
     validateIds() {
-        const idPattern = /^[a-zA-Z0-9]{20}$/;
-        return idPattern.test(this.userId) && idPattern.test(this.activityId);
+        // Support both old 20-char format and new shorter format
+        const oldPattern = /^[a-zA-Z0-9]{20}$/;
+        const newPattern = /^(usr|act|evt)_[a-zA-Z0-9]{8}$/;
+        
+        const isValidOld = oldPattern.test(this.userId) && oldPattern.test(this.activityId);
+        const isValidNew = newPattern.test(this.userId) && newPattern.test(this.activityId);
+        
+        return isValidOld || isValidNew;
     }
 
     redirectToHome() {
@@ -156,44 +165,60 @@ class LiveTracker {
     }
 
     initializeSocketIO() {
-        // Connect to Socket.IO server
-        this.socket = io();
+        try {
+            // Check if Socket.IO is available
+            if (typeof io === 'undefined') {
+                console.warn('⚠️ Socket.IO not available, real-time updates disabled');
+                this.socket = null;
+                return;
+            }
 
-        // Join tracking room
-        this.socket.emit('join-tracking', {
-            runnerId: this.userId,
-            activityId: this.activityId
-        });
+            // Connect to Socket.IO server
+            this.socket = io();
 
-        // Listen for real-time updates
-        this.socket.on('location-update', (data) => {
-            console.log('📍 Real-time location update:', data);
-            this.updateRunnerLocation(data.location.lat, data.location.lng, data.location.distance);
-            this.updateStats({
-                distance: data.location.distance,
-                remaining: Math.max(0, 42.2 - data.location.distance)
+            // Join tracking room
+            this.socket.emit('join-tracking', {
+                runnerId: this.userId,
+                activityId: this.activityId
             });
-        });
 
-        this.socket.on('new-message', (data) => {
-            console.log('💬 New message received:', data);
-            this.addNewMessage(data.message);
-        });
+            // Listen for real-time updates
+            this.socket.on('location-update', (data) => {
+                console.log('📍 Real-time location update:', data);
+                this.updateRunnerLocation(data.location.lat, data.location.lng, data.location.distance);
+                this.updateStats({
+                    distance: data.location.distance,
+                    remaining: Math.max(0, 42.2 - data.location.distance)
+                });
+            });
 
-        this.socket.on('activity-started', (data) => {
-            console.log('🏁 Activity started:', data);
-            this.raceStartTime = new Date(data.startTime);
-            this.updateConnectionStatus('online', 'Live Tracking');
-            this.isOnline = true;
-        });
+            this.socket.on('new-message', (data) => {
+                console.log('💬 New message received:', data);
+                this.addNewMessage(data.message);
+            });
 
-        console.log('🔌 Socket.IO initialized');
+            this.socket.on('activity-started', (data) => {
+                console.log('🏁 Activity started:', data);
+                this.raceStartTime = new Date(data.startTime);
+                this.updateConnectionStatus('online', 'Live Tracking');
+                this.isOnline = true;
+            });
+
+            console.log('🔌 Socket.IO initialized');
+        } catch (error) {
+            console.warn('⚠️ Socket.IO initialization failed:', error);
+            this.socket = null;
+        }
     }
 
     async loadInitialData() {
         try {
+            console.log(`🔍 Fetching data from: ${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}`);
+            
             // Load runner data and current stats
             const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}`);
+            
+            console.log(`📡 Response status: ${response.status} ${response.statusText}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -242,6 +267,7 @@ class LiveTracker {
 
     async loadMessages() {
         try {
+            console.log(`🔍 Loading messages for activity: ${this.activityId}`);
             const response = await fetch(`${this.API_BASE_URL}/api/runner/${this.userId}/activity/${this.activityId}/messages?limit=20`);
             
             if (!response.ok) {
@@ -249,11 +275,13 @@ class LiveTracker {
             }
 
             const messages = await response.json();
+            console.log(`📨 Loaded ${messages.length} messages`);
             this.displayMessages(messages);
 
         } catch (error) {
             console.error('❌ Error loading messages:', error);
             // Don't throw here, just show empty messages
+            console.log('📨 Showing empty messages due to error');
             this.displayMessages([]);
         }
     }
@@ -465,7 +493,7 @@ class LiveTracker {
 
         messagesList.innerHTML = recentMessages.map(msg => `
             <div class="message-item">
-                <div class="message-sender">${this.escapeHtml(msg.sender.name || 'Anonymous')}</div>
+                <div class="message-sender">${this.escapeHtml(msg.sender || 'Anonymous')}</div>
                 <div class="message-text">${this.escapeHtml(msg.message)}</div>
                 <div class="message-time">${new Date(msg.createdAt).toLocaleTimeString()}</div>
             </div>
