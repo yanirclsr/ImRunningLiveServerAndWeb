@@ -11,6 +11,8 @@ const ATLAS_CONFIG = {
         serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
         socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
         // SSL/TLS options for Atlas
+        tls: true,
+        tlsAllowInvalidCertificates: false,
         ssl: true,
         sslValidate: true,
         // Replica set options
@@ -19,7 +21,7 @@ const ATLAS_CONFIG = {
         authSource: process.env.MONGODB_AUTH_SOURCE || 'admin',
         // Write concern
         w: 'majority',
-        wtimeout: 10000,
+        wtimeoutMS: 10000,
         // Read preference
         readPreference: 'primary',
         // Retry writes
@@ -106,6 +108,9 @@ mongoose.connection.on('reconnected', () => {
     connectionState = 'connected';
     console.log('🔄 Mongoose reconnected to MongoDB Atlas');
 });
+
+// Prevent memory leaks by setting max listeners
+mongoose.connection.setMaxListeners(5);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

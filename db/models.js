@@ -7,7 +7,6 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        index: true,
         validate: {
             validator: function(v) {
                 return /^usr_[a-zA-Z0-9]{8}$/.test(v);
@@ -66,7 +65,6 @@ const eventSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        index: true,
         validate: {
             validator: function(v) {
                 return /^evt_[a-zA-Z0-9]{8}$/.test(v);
@@ -150,7 +148,6 @@ const activitySchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        index: true,
         validate: {
             validator: function(v) {
                 return /^act_[a-zA-Z0-9]{8}$/.test(v);

@@ -56,8 +56,18 @@ async function createCollections() {
                 }
                 
                 // Create/update indexes (safe to run multiple times)
-                await Collection.createIndexes();
-                console.log(`    ✅ Indexes updated for: ${collectionName}`);
+                try {
+                    await Collection.createIndexes();
+                    console.log(`    ✅ Indexes updated for: ${collectionName}`);
+                } catch (indexError) {
+                    // Handle common index errors gracefully
+                    if (indexError.message.includes('duplicate key error') || 
+                        indexError.message.includes('already exists')) {
+                        console.log(`    ℹ️  Indexes already exist for: ${collectionName}`);
+                    } else {
+                        console.log(`    ⚠️  Index creation warning for ${collectionName}:`, indexError.message);
+                    }
+                }
                 
             } catch (collectionError) {
                 console.log(`    ⚠️  Collection ${collectionName} error:`, collectionError.message);
@@ -194,44 +204,64 @@ async function seedInitialData() {
         await berlinEvent.save();
         console.log(`  ✅ Created event: ${berlinEvent.name} (${berlinEvent._id})`);
         
-        // Create a sample user for testing
-        const sampleUser = new User({
-            _id: generateUserId(),
-            email: 'yanir@example.com',
-            displayName: 'Yanir',
-            auth: {
-                provider: 'apple',
-                sub: 'apple-oidc-sub-sample'
-            },
-            preferences: {
-                voice: 'en-GB',
-                cheersVolume: 0.8
-            }
+        // Check if sample user already exists
+        const existingUser = await User.findOne({ email: 'yanir@example.com' });
+        
+        if (existingUser) {
+            console.log(`  ℹ️  Sample user already exists: ${existingUser.displayName} (${existingUser._id})`);
+        } else {
+            // Create a sample user for testing
+            const sampleUser = new User({
+                _id: generateUserId(),
+                email: 'yanir@example.com',
+                displayName: 'Yanir',
+                auth: {
+                    provider: 'apple',
+                    sub: 'apple-oidc-sub-sample'
+                },
+                preferences: {
+                    voice: 'en-GB',
+                    cheersVolume: 0.8
+                }
+            });
+            
+            await sampleUser.save();
+            console.log(`  ✅ Created sample user: ${sampleUser.displayName} (${sampleUser._id})`);
+        }
+        
+        // Get the user ID (either existing or newly created)
+        const userId = existingUser ? existingUser._id : sampleUser._id;
+        
+        // Check if sample activity already exists for this user and event
+        const existingActivity = await Activity.findOne({ 
+            runnerId: userId, 
+            eventId: berlinEvent._id 
         });
         
-        await sampleUser.save();
-        console.log(`  ✅ Created sample user: ${sampleUser.displayName} (${sampleUser._id})`);
-        
-        // Create a sample activity for the user
-        const sampleActivity = new Activity({
-            _id: generateActivityId(),
-            runnerId: sampleUser._id,
-            eventId: berlinEvent._id,
-            status: 'planned',
-            share: {
-                public: true,
-                token: generateShareToken(),
-                expiresAt: null
-            },
-            settings: {
-                pingIntervalSec: 10,
-                cheersEnabled: true,
-                ttsLang: 'en-US'
-            }
-        });
-        
-        await sampleActivity.save();
-        console.log(`  ✅ Created sample activity: ${sampleActivity._id}`);
+        if (existingActivity) {
+            console.log(`  ℹ️  Sample activity already exists: ${existingActivity._id}`);
+        } else {
+            // Create a sample activity for the user
+            const sampleActivity = new Activity({
+                _id: generateActivityId(),
+                runnerId: userId,
+                eventId: berlinEvent._id,
+                status: 'planned',
+                share: {
+                    public: true,
+                    token: generateShareToken(),
+                    expiresAt: null
+                },
+                settings: {
+                    pingIntervalSec: 10,
+                    cheersEnabled: true,
+                    ttsLang: 'en-US'
+                }
+            });
+            
+            await sampleActivity.save();
+            console.log(`  ✅ Created sample activity: ${sampleActivity._id}`);
+        }
         
         console.log('  🌟 Sample data created successfully!');
         
@@ -260,17 +290,24 @@ async function createSampleData() {
         ];
         
         for (const userData of sampleUsers) {
-            const user = new User({
-                _id: generateUserId(),
-                ...userData,
-                preferences: {
-                    voice: 'en-GB',
-                    cheersVolume: 0.8
-                }
-            });
+            // Check if user already exists
+            const existingUser = await User.findOne({ email: userData.email });
             
-            await user.save();
-            console.log(`  ✅ Created user: ${user.displayName} (${user._id})`);
+            if (existingUser) {
+                console.log(`  ℹ️  User already exists: ${existingUser.displayName} (${existingUser._id})`);
+            } else {
+                const user = new User({
+                    _id: generateUserId(),
+                    ...userData,
+                    preferences: {
+                        voice: 'en-GB',
+                        cheersVolume: 0.8
+                    }
+                });
+                
+                await user.save();
+                console.log(`  ✅ Created user: ${user.displayName} (${user._id})`);
+            }
         }
         
         // Create some sample cheers
@@ -294,13 +331,24 @@ async function createSampleData() {
         
         if (sampleActivity) {
             for (const cheerData of sampleCheers) {
-                const cheer = new Cheer({
+                // Check if cheer already exists
+                const existingCheer = await Cheer.findOne({
                     activityId: sampleActivity._id,
-                    ...cheerData
+                    'from.name': cheerData.from.name,
+                    message: cheerData.message
                 });
                 
-                await cheer.save();
-                console.log(`  ✅ Created cheer from ${cheer.from.name}`);
+                if (existingCheer) {
+                    console.log(`  ℹ️  Cheer already exists from ${cheerData.from.name}`);
+                } else {
+                    const cheer = new Cheer({
+                        activityId: sampleActivity._id,
+                        ...cheerData
+                    });
+                    
+                    await cheer.save();
+                    console.log(`  ✅ Created cheer from ${cheer.from.name}`);
+                }
             }
         }
         

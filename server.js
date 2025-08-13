@@ -54,13 +54,14 @@ async function startServer() {
         }
         
         // Start the server
-        server.listen(PORT, () => {
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`🏃‍♂️ I'm Running Live API is running on port ${PORT}`);
             console.log(`🌐 Platform: imrunning.live`);
             console.log(`📍 Homepage: http://localhost:${PORT}/`);
             console.log(`🔧 API Test: http://localhost:${PORT}/api/test`);
             console.log(`💚 Health Check: http://localhost:${PORT}/api/health`);
             console.log(`🔌 Socket.IO enabled for real-time updates`);
+            console.log(`🌍 Server listening on all interfaces (0.0.0.0:${PORT})`);
         });
         
     } catch (error) {
@@ -69,8 +70,10 @@ async function startServer() {
     }
 }
 
-// Start the server
-startServer();
+// Start the server only if this file is run directly
+if (require.main === module) {
+    startServer();
+}
 
 // Middleware
 app.use(cors());
@@ -681,3 +684,11 @@ app.get('*', (req, res) => {
         ]
     });
 });
+
+// Export the startServer function for external use
+module.exports = {
+    startServer,
+    app,
+    server,
+    io
+};

@@ -3,20 +3,26 @@ const mongoose = require('mongoose');
 
 // Local MongoDB connection configuration
 const LOCAL_CONFIG = {
-    uri: process.env.MONGODB_LOCAL_URI || 'mongodb://localhost:27017/imrunning',
+    uri: process.env.MONGODB_LOCAL_URI || 'mongodb://127.0.0.1:27017/imrunning?tls=false&ssl=false',
     options: {
         // Modern MongoDB driver options
         maxPoolSize: 5, // Smaller pool for local development
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 30000,
-        // Local development options
+        // Local development options - explicitly disable TLS/SSL
+        tls: false,
+        tlsAllowInvalidCertificates: false,
         ssl: false,
         sslValidate: false,
         // Write concern
         w: 1,
-        wtimeout: 5000,
+        wtimeoutMS: 5000,
         // Read preference
-        readPreference: 'primary'
+        readPreference: 'primary',
+        // Prevent memory leaks
+        maxIdleTimeMS: 30000,
+        // Connection pooling
+        minPoolSize: 1
     }
 };
 
@@ -144,6 +150,9 @@ mongoose.connection.on('reconnected', () => {
     connectionState = 'connected';
     console.log('🔄 Mongoose reconnected to local MongoDB');
 });
+
+// Prevent memory leaks by setting max listeners
+mongoose.connection.setMaxListeners(5);
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
