@@ -70,9 +70,9 @@
 
 <!-- Cheer Menu (Right Side) -->
 <div class="cheer-menu" id="cheerMenu">
-    <div class="cheer-tab">
-        <span>Cheer Me!</span>
-        <div class="cheer-arrow">〉</div>
+    <div class="cheer-tab" id="cheerTab">
+        <span>Close</span>
+        <div class="cheer-arrow">〈</div>
     </div>
 
     <div class="cheer-content">
@@ -80,7 +80,12 @@
 
         <!-- Name Input -->
         <div class="name-section">
-            <input type="text" id="senderName" placeholder="Your name..." required maxlength="30">
+            <div class="name-input-container">
+                <input type="text" id="senderName" placeholder="Your name..." required maxlength="30">
+                <button type="button" id="editNameBtn" class="edit-name-btn" title="Edit name">
+                    ✏️
+                </button>
+            </div>
         </div>
 
         <!-- Canned Cheers -->

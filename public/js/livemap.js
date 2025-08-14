@@ -8,8 +8,12 @@ class LiveTracker {
 
         // Configuration
         this.API_BASE_URL = window.location.origin;
-        this.UPDATE_INTERVAL = 10000; // 10 seconds
+        this.UPDATE_INTERVAL = 15000; // 15 seconds (delay)
+        this.ANIMATION_DURATION = 10000; // 10 seconds (smooth movement)
         this.MESSAGE_CHECK_INTERVAL = 30000; // 30 seconds
+        
+        // Load saved visitor name from localStorage
+        this.loadSavedVisitorName();
 
         // State
         this.map = null;
@@ -161,6 +165,22 @@ class LiveTracker {
 
         this.runnerMarker.bindPopup('<b>Runner\'s Location</b><br>Loading position...').openPopup();
 
+        // Add zoom event handler to ensure runner stays centered
+        this.map.on('zoomend', () => {
+            if (this.runnerMarker) {
+                const runnerPos = this.runnerMarker.getLatLng();
+                this.ensureRunnerVisible(runnerPos);
+            }
+        });
+
+        // Add pan event handler to ensure runner stays visible
+        this.map.on('moveend', () => {
+            if (this.runnerMarker) {
+                const runnerPos = this.runnerMarker.getLatLng();
+                this.ensureRunnerVisible(runnerPos);
+            }
+        });
+
         console.log('🗺️ Map initialized');
     }
 
@@ -230,7 +250,9 @@ class LiveTracker {
             // Update runner title
             const runnerTitle = document.getElementById('runnerTitle');
             if (runnerTitle) {
-                runnerTitle.textContent = `🏃‍♂️ ${data.runner.name}'s ${data.activity.raceName}`;
+                const eventName = data.event && data.event.name ? data.event.name : 'Custom Run';
+                runnerTitle.textContent = `🏃‍♂️ ${data.runner.name}'s ${eventName}`;
+                console.log(`🏷️ Updated title to: ${eventName}`);
             }
 
             // Set race start time if available
@@ -247,8 +269,24 @@ class LiveTracker {
             this.updateStats(data.currentStats);
 
             // Update runner location if available
+            console.log(`🗺️ Location data:`, { 
+                lastLocation: data.lastLocation, 
+                eventLocation: data.event?.location,
+                currentStats: data.currentStats 
+            });
+            
             if (data.lastLocation) {
+                console.log(`🗺️ Using last location: ${data.lastLocation.lat}, ${data.lastLocation.lng}`);
                 this.updateRunnerLocation(data.lastLocation.lat, data.lastLocation.lng, data.currentStats.distance);
+            } else if (data.event && data.event.location && data.event.location.coordinates) {
+                // If no last location, use event location but prefer user's actual location
+                const coords = data.event.location.coordinates.coordinates;
+                if (coords && coords.length === 2) {
+                    console.log(`🗺️ Using event location as fallback: ${coords[1]}, ${coords[0]}`);
+                    this.updateRunnerLocation(coords[1], coords[0], 0);
+                }
+            } else {
+                console.log(`⚠️ No location data available - map will show default location`);
             }
 
             // Load messages
@@ -292,16 +330,71 @@ class LiveTracker {
             btn.addEventListener('click', (e) => this.handleCannedCheer(e));
         });
 
-        // Name input validation
+        // Name input validation and auto-save
         const nameInput = document.getElementById('senderName');
         nameInput.addEventListener('input', () => {
             this.validateCheerButtons();
+            // Auto-save name to localStorage
+            this.saveVisitorName(nameInput.value);
         });
+
+        // Edit name button
+        const editNameBtn = document.getElementById('editNameBtn');
+        if (editNameBtn) {
+            editNameBtn.addEventListener('click', () => {
+                nameInput.focus();
+                nameInput.select();
+            });
+        }
+
+        // Cheer menu toggle
+        const cheerTab = document.getElementById('cheerTab');
+        if (cheerTab) {
+            cheerTab.addEventListener('click', () => this.toggleCheerMenu());
+        }
 
         // Map controls
         document.getElementById('centerMapBtn').addEventListener('click', () => this.centerMap());
 
         console.log('🔗 Event listeners bound');
+    }
+
+    loadSavedVisitorName() {
+        const savedName = localStorage.getItem('imrunning_visitor_name');
+        if (savedName) {
+            const nameInput = document.getElementById('senderName');
+            if (nameInput) {
+                nameInput.value = savedName;
+                this.validateCheerButtons();
+            }
+        }
+    }
+
+    saveVisitorName(name) {
+        if (name && name.trim()) {
+            localStorage.setItem('imrunning_visitor_name', name.trim());
+        }
+    }
+
+    toggleCheerMenu() {
+        const cheerMenu = document.getElementById('cheerMenu');
+        const cheerTab = document.getElementById('cheerTab');
+        
+        if (cheerMenu && cheerTab) {
+            const isClosed = cheerMenu.classList.contains('closed');
+            
+            if (isClosed) {
+                // Open menu
+                cheerMenu.classList.remove('closed');
+                cheerTab.querySelector('span').textContent = 'Close';
+                cheerTab.querySelector('.cheer-arrow').textContent = '〈';
+            } else {
+                // Close menu
+                cheerMenu.classList.add('closed');
+                cheerTab.querySelector('span').textContent = 'Open';
+                cheerTab.querySelector('.cheer-arrow').textContent = '〉';
+            }
+        }
     }
 
     handleCannedCheer(e) {
@@ -384,8 +477,23 @@ class LiveTracker {
     updateRunnerLocation(lat, lng, distance) {
         const newPos = [lat, lng];
 
-        // Update marker position
-        this.runnerMarker.setLatLng(newPos);
+        // Update marker position with smooth animation
+        if (this.runnerMarker) {
+            this.runnerMarker.slideTo(newPos, {
+                duration: this.ANIMATION_DURATION,
+                keepAtCenter: false
+            });
+        } else {
+            // Create runner marker if it doesn't exist
+            this.runnerMarker = L.marker(newPos, {
+                icon: L.divIcon({
+                    className: 'runner-marker',
+                    html: '🏃‍♂️',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
+                })
+            }).addTo(this.map);
+        }
 
         // Update popup with current location
         this.runnerMarker.getPopup().setContent(`
@@ -411,10 +519,14 @@ class LiveTracker {
             }).addTo(this.map);
         }
 
-        // Center map on runner if it's the first location
-        if (this.routePath.length === 1) {
-            this.map.setView(newPos, 15);
-        }
+        // Center map on runner with smooth animation
+        this.map.panTo(newPos, { 
+            animate: true, 
+            duration: this.ANIMATION_DURATION / 1000 // Convert to seconds
+        });
+        
+        // Ensure runner is always visible and centered
+        this.ensureRunnerVisible(newPos);
 
         console.log(`📍 Location updated: ${lat}, ${lng}, Distance: ${distance} km`);
     }
@@ -493,8 +605,8 @@ class LiveTracker {
 
         messagesList.innerHTML = recentMessages.map(msg => `
             <div class="message-item">
-                <div class="message-sender">${this.escapeHtml(msg.sender || 'Anonymous')}</div>
-                <div class="message-text">${this.escapeHtml(msg.message)}</div>
+                <div class="message-sender">${this.preserveEmojis(msg.sender || 'Anonymous')}</div>
+                <div class="message-text">${this.preserveEmojis(msg.message)}</div>
                 <div class="message-time">${new Date(msg.createdAt).toLocaleTimeString()}</div>
             </div>
         `).join('');
@@ -512,8 +624,8 @@ class LiveTracker {
         // Add new message at the top
         const newMsgHtml = `
             <div class="message-item" style="animation: messageSlideIn 0.3s ease;">
-                <div class="message-sender">${this.escapeHtml(message.sender)}</div>
-                <div class="message-text">${this.escapeHtml(message.message)}</div>
+                <div class="message-sender">${this.preserveEmojis(message.sender)}</div>
+                <div class="message-text">${this.preserveEmojis(message.message)}</div>
                 <div class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</div>
             </div>
         `;
@@ -549,6 +661,43 @@ class LiveTracker {
         }
     }
 
+    ensureRunnerVisible(runnerPosition) {
+        // Get current map bounds
+        const bounds = this.map.getBounds();
+        const mapCenter = this.map.getCenter();
+        
+        // Check if runner is within current view
+        const isRunnerVisible = bounds.contains(runnerPosition);
+        
+        if (!isRunnerVisible) {
+            // Runner is outside current view, center map on runner
+            console.log('🗺️ Runner outside view, centering map');
+            this.map.setView(runnerPosition, this.map.getZoom(), {
+                animate: true,
+                duration: this.ANIMATION_DURATION / 1000
+            });
+        } else {
+            // Runner is visible, but ensure it's reasonably centered
+            const distanceFromCenter = mapCenter.distanceTo(runnerPosition);
+            const maxDistance = 100; // meters
+            
+            if (distanceFromCenter > maxDistance) {
+                console.log('🗺️ Runner far from center, recentering');
+                this.map.panTo(runnerPosition, {
+                    animate: true,
+                    duration: 1.0
+                });
+            }
+        }
+    }
+    
+    preserveEmojis(text) {
+        // Decode HTML entities while preserving emojis
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        return textarea.value;
+    }
+    
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;

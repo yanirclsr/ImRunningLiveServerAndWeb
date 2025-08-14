@@ -298,11 +298,19 @@ app.get('/api/activities/recent', async (req, res) => {
         const limit = parseInt(req.query.limit) || 10;
         
         // Get recent activities with user and event details
-        const activities = await Activity.find()
-            .sort({ createdAt: -1 })
-            .limit(limit)
+        // Sort by createdAt descending, with fallback to _id for consistent ordering
+        let activities = await Activity.find()
+            .sort({ createdAt: -1, _id: -1 })
+            .limit(limit * 2) // Get more to filter out ones without createdAt
             .populate('runnerId', 'displayName email')
             .populate('eventId', 'name date type distance');
+        
+        // Filter out activities without createdAt and ensure we have the requested limit
+        activities = activities
+            .filter(activity => activity.createdAt)
+            .slice(0, limit);
+        
+        console.log(`🔍 Found ${activities.length} activities with valid timestamps, latest createdAt: ${activities[0]?.createdAt || 'N/A'}`);
         
         // Format activities with tracking URLs
         const formattedActivities = activities.map(activity => {
@@ -442,7 +450,7 @@ app.post('/api/runners', async (req, res) => {
 app.post('/api/runner/:runnerId/activity/:activityId/start', async (req, res) => {
     try {
         const { runnerId, activityId } = req.params;
-        const { startLocation } = req.body;
+        const { startLocation, latitude, longitude, eventName, eventType, eventDate } = req.body;
 
         if (!validateId(runnerId) || !validateId(activityId)) {
             return res.status(400).json({ error: 'Invalid ID format' });
@@ -476,55 +484,110 @@ app.post('/api/runner/:runnerId/activity/:activityId/start', async (req, res) =>
         if (!activity) {
             console.log(`🏃‍♂️ Creating new activity with ID: ${activityId}`);
             
-            // Get the Berlin Marathon event (or create one if it doesn't exist)
-            event = await Event.findOne({ name: /berlin.*marathon/i });
-            if (!event) {
-                console.log('🏁 Creating Berlin Marathon event');
+                    // Check if we have custom event info from the request
+            const { eventName, eventType, eventDate } = req.body;
+            
+            console.log(`🔍 Request body event info:`, { eventName, eventType, eventDate });
+            console.log(`🔍 Full request body:`, req.body);
+            console.log(`🔍 Event name check: "${eventName}" !== "Custom Run" = ${eventName !== 'Custom Run'}`);
+            
+            if (eventName && eventName !== 'Custom Run') {
+                // Create a custom event based on user input
+                const finalEventType = eventType || 'custom';
+                console.log(`🏁 Creating custom event: ${eventName} (Type: ${finalEventType})`);
+                console.log(`🔍 Event type validation: ${finalEventType} is valid: ${['marathon', 'half-marathon', '10k', '5k', 'ultra', 'other', 'custom'].includes(finalEventType)}`);
+                
                 event = new Event({
                     _id: generateEventId(),
-                    name: 'Berlin Marathon 2025',
-                    date: new Date('2025-09-28'),
+                    name: eventName,
+                    date: eventDate ? new Date(eventDate) : new Date(),
                     location: {
-                        city: 'Berlin',
-                        country: 'Germany',
+                        city: 'Tel Aviv',
+                        country: 'Israel',
                         coordinates: {
                             type: 'Point',
-                            coordinates: [13.4050, 52.5200] // [lng, lat]
+                            coordinates: [34.7818, 32.0853] // Tel Aviv coordinates [lng, lat]
                         }
                     },
-                    type: 'marathon',
-                    distance: 42195,
-                    description: 'The 52nd Berlin Marathon - one of the world\'s fastest marathon courses',
-                    status: 'upcoming',
+                    type: finalEventType,
+                    distance: 0, // Unknown distance for custom events
+                    description: `Custom running event: ${eventName}`,
+                    status: 'active',
                     registration: {
-                        open: true,
-                        deadline: new Date('2025-08-28'),
-                        maxParticipants: 50000
+                        open: false,
+                        deadline: new Date(),
+                        maxParticipants: 1
                     },
                     tracking: {
                         enabled: true,
-                        startTime: new Date('2025-09-28T08:00:00Z'),
-                        endTime: new Date('2025-09-28T18:00:00Z'),
-                        checkpoints: [
-                            { km: 5, name: 'Brandenburg Gate' },
-                            { km: 10, name: 'Potsdamer Platz' },
-                            { km: 21.1, name: 'Half Marathon' },
-                            { km: 30, name: 'Alexanderplatz' },
-                            { km: 35, name: 'Unter den Linden' },
-                            { km: 42.195, name: 'Finish Line' }
-                        ]
+                        startTime: new Date(),
+                        endTime: null,
+                        checkpoints: []
                     }
                 });
-                await event.save();
-                console.log(`✅ Created Berlin Marathon event: ${event.name} (${event._id})`);
+                
+                try {
+                    await event.save();
+                    console.log(`✅ Created custom event: ${event.name} (${event._id})`);
+                } catch (saveError) {
+                    console.error(`❌ Failed to save custom event: ${saveError.message}`);
+                    console.error(`❌ Save error details:`, saveError);
+                    throw new Error(`Failed to create custom event: ${saveError.message}`);
+                }
+            } else {
+                // Fallback to Berlin Marathon event (or create one if it doesn't exist)
+                event = await Event.findOne({ name: /berlin.*marathon/i });
+                if (!event) {
+                    console.log('🏁 Creating Berlin Marathon event');
+                    event = new Event({
+                        _id: generateEventId(),
+                        name: 'Berlin Marathon 2025',
+                        date: new Date('2025-09-28'),
+                        location: {
+                            city: 'Berlin',
+                            country: 'Germany',
+                            coordinates: {
+                                type: 'Point',
+                                coordinates: [13.4050, 52.5200] // [lng, lat]
+                            }
+                        },
+                        type: 'marathon',
+                        distance: 42195,
+                        description: 'The 52nd Berlin Marathon - one of the world\'s fastest marathon courses',
+                        status: 'upcoming',
+                        registration: {
+                            open: true,
+                            deadline: new Date('2025-08-28'),
+                            maxParticipants: 50000
+                        },
+                        tracking: {
+                            enabled: true,
+                            startTime: new Date('2025-09-28T08:00:00Z'),
+                            endTime: new Date('2025-09-28T18:00:00Z'),
+                            checkpoints: [
+                                { km: 5, name: 'Brandenburg Gate' },
+                                { km: 10, name: 'Potsdamer Platz' },
+                                { km: 21.1, name: 'Half Marathon' },
+                                { km: 30, name: 'Alexanderplatz' },
+                                { km: 35, name: 'Unter den Linden' },
+                                { km: 42.195, name: 'Finish Line' }
+                            ]
+                        }
+                    });
+                    await event.save();
+                    console.log(`✅ Created Berlin Marathon event: ${event.name} (${event._id})`);
+                }
             }
 
             // Create the new activity
+            const now = new Date();
             activity = new Activity({
                 _id: activityId,
                 runnerId: user._id,
                 eventId: event._id,
                 status: 'planned',
+                createdAt: now,
+                updatedAt: now,
                 share: {
                     public: true,
                     token: generateShareToken(),
@@ -577,6 +640,14 @@ app.post('/api/runner/:runnerId/activity/:activityId/start', async (req, res) =>
             startTime: activity.startedAt
         });
 
+        // Log what we're sending back
+        console.log(`📤 Sending response with event:`, {
+            eventId: event._id,
+            eventName: event.name,
+            eventType: event.type,
+            eventLocation: event.location
+        });
+        
         // Return comprehensive data
         res.json({
             success: true,
@@ -773,8 +844,14 @@ app.get('/api/runner/:runnerId/activity/:activityId', async (req, res) => {
                 city: user.profile?.city || 'Unknown',
                 country: user.profile?.country || 'Unknown'
             },
+            event: event ? {
+                name: event.name || 'Custom Run',
+                date: event.date || new Date(),
+                type: event.type || 'custom',
+                location: event.location || null
+            } : null,
             activity: {
-                raceName: event?.name || 'Unknown Race',
+                raceName: event?.name || 'Custom Run',
                 raceDate: event?.date || new Date(),
                 status: activity.status || 'planned',
                 startTime: activity.startedAt,
