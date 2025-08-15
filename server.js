@@ -1085,6 +1085,58 @@ app.get('/:userId/:activityId', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'livemap.html'));
 });
 
+// IP and Atlas status endpoint
+app.get('/api/status/ip', async (req, res) => {
+    try {
+        const ipManager = require('./db/atlas-ip-manager');
+        const ipStatus = ipManager.getStatus();
+        
+        res.json({
+            success: true,
+            ip: ipStatus.currentIP,
+            lastUpdated: ipStatus.lastUpdated,
+            monitoring: ipStatus.monitoring,
+            cacheFile: ipStatus.cacheFile,
+            message: 'IP status retrieved successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Failed to get IP status'
+        });
+    }
+});
+
+// Manual IP check and update endpoint
+app.post('/api/status/ip/check', async (req, res) => {
+    try {
+        const ipManager = require('./db/atlas-ip-manager');
+        const result = await ipManager.checkAndUpdateIP();
+        
+        if (result) {
+            const status = ipManager.getStatus();
+            res.json({
+                success: true,
+                message: 'IP check and update completed successfully',
+                ip: status.currentIP,
+                lastUpdated: status.lastUpdated
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                message: 'IP check and update failed'
+            });
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Failed to check and update IP'
+        });
+    }
+});
+
 // 404 handler for unknown routes
 app.get('*', (req, res) => {
     res.status(404).json({
@@ -1099,7 +1151,9 @@ app.get('*', (req, res) => {
             'POST /api/runner/:id/activity/:id/start',
             'POST /api/runner/:id/activity/:id/location',
             'GET /runner/:id/:activity',
-            'GET /:userId/:activityId'
+            'GET /:userId/:activityId',
+            'GET /api/status/ip',
+            'POST /api/status/ip/check'
         ]
     });
 });

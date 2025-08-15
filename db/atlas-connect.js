@@ -8,13 +8,15 @@ const ATLAS_CONFIG = {
     options: {
         // Modern MongoDB driver options
         maxPoolSize: 10, // Maintain up to 10 socket connections
-        serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+        serverSelectionTimeoutMS: 30000, // Keep trying to send operations for 30 seconds (production)
         socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-        // SSL/TLS options for Atlas
+        // SSL/TLS options for Atlas (production-ready)
         tls: true,
         tlsAllowInvalidCertificates: false,
-        ssl: true,
-        sslValidate: true,
+        tlsAllowInvalidHostnames: false,
+        // Remove deprecated SSL options
+        // ssl: true,
+        // sslValidate: true,
         // Replica set options
         replicaSet: process.env.MONGODB_REPLICA_SET,
         // Authentication
