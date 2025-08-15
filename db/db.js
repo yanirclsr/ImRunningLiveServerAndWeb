@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 // Import connection modules
 const localConnect = require('./local-connect');
 const atlasConnect = require('./atlas-connect');
+const productionConfig = require('./production-config');
+const ipManager = require('./atlas-ip-manager');
 
 // Connection configuration
 const CONFIG = {
@@ -14,7 +16,7 @@ const CONFIG = {
     },
     local: {
         uri: process.env.MONGODB_LOCAL_URI || 'mongodb://localhost:27017/imrunning',
-        enabled: true
+        enabled: process.env.NODE_ENV !== 'production' && !process.env.RENDER // Disable local in production
     }
 };
 
@@ -30,18 +32,46 @@ async function connectDB() {
         // Try Atlas first if URI is provided
         if (CONFIG.atlas.enabled && CONFIG.atlas.uri) {
             try {
-                console.log('🌐 Attempting MongoDB Atlas connection...');
-                await atlasConnect.connectToAtlas();
+                // Check and update IP whitelist if needed (development only)
+                if (process.env.NODE_ENV !== 'production' && !process.env.RENDER) {
+                    console.log('🔍 Checking IP whitelist for MongoDB Atlas...');
+                    try {
+                        await ipManager.checkAndUpdateIP();
+                    } catch (ipError) {
+                        console.log('⚠️  IP whitelist check failed, but continuing:', ipError.message);
+                    }
+                }
+                
+                if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+                    // Use production configuration for production environments
+                    console.log('🚀 Using production MongoDB configuration...');
+                    await productionConfig.connectToProductionDB(CONFIG.atlas.uri);
+                } else {
+                    // Use standard Atlas configuration for development
+                    console.log('🌐 Attempting MongoDB Atlas connection...');
+                    await atlasConnect.connectToAtlas();
+                }
                 connectionType = 'atlas';
                 connectionState = 'connected';
                 console.log('✅ Connected to MongoDB Atlas');
+                
+                // Start IP monitoring in development
+                if (process.env.NODE_ENV !== 'production' && !process.env.RENDER) {
+                    ipManager.startMonitoring();
+                }
+                
                 return;
             } catch (atlasError) {
-                console.log('⚠️  Atlas connection failed, trying local...');
+                console.log('⚠️  Atlas connection failed:', atlasError.message);
+                if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+                    // In production, don't fall back to local
+                    throw atlasError;
+                }
+                console.log('💡 Development environment detected, trying local MongoDB...');
             }
         }
         
-        // Try local MongoDB
+        // Try local MongoDB (only in development)
         if (CONFIG.local.enabled) {
             try {
                 console.log('🏠 Attempting local MongoDB connection...');
@@ -55,8 +85,12 @@ async function connectDB() {
             }
         }
         
-        // If both failed, throw error
-        throw new Error('Failed to connect to both MongoDB Atlas and local MongoDB');
+        // If both failed, provide appropriate error message
+        if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+            throw new Error('MongoDB Atlas connection failed in production environment. Please check your MONGODB_ATLAS_URI environment variable.');
+        } else {
+            throw new Error('Failed to connect to both MongoDB Atlas and local MongoDB');
+        }
         
     } catch (error) {
         connectionState = 'error';

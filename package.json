@@ -12,6 +12,10 @@
     "db:atlas": "node db/atlas-connect.js",
     "db:local": "node db/local-connect.js",
     "db:status": "node -e \"require('./db/db').testConnection().then(console.log).catch(console.error)\"",
+    "setup:atlas": "node setup-atlas-api.js",
+    "test:ip": "node test-ip-manager.js",
+    "ip:status": "curl -s http://localhost:3000/api/status/ip | jq .",
+    "ip:check": "curl -s -X POST http://localhost:3000/api/status/ip/check | jq .",
     "dev:all": "./run_imrunning_live_app.sh"
   },
   "keywords": ["marathon", "tracking", "real-time", "running", "live"],
